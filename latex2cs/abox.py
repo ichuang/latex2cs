@@ -73,11 +73,12 @@ class AnswerBox:
             xs += ["</question>"]
             return "\n".join(xs)
 
-    def copy_attrib(self, xs, name, default=None):
+    def copy_attrib(self, xs, name, default=None, newname=None):
         '''
         Make csq_<name> = abargs[name] line in xs
         '''
-        xs.append('csq_%s = %r' % (name, self.abargs.get(name, default)))
+        newname = newname or name
+        xs.append('csq_%s = %r' % (newname, self.abargs.get(name, default)))
 
     def make_pythonic(self):
         '''
@@ -90,7 +91,7 @@ class AnswerBox:
         self.require_args(['expect', 'cfn'])
         xs.append("csq_check_function = %s" % self.stripquotes(abargs['cfn']))
         self.copy_attrib(xs, 'inline')
-        self.copy_attrib(xs, 'expect')
+        self.copy_attrib(xs, 'expect', None, "soln")
         self.copy_attrib(xs, 'options', {})
         self.copy_attrib(xs, 'npoints', 0)
         xs.append("csq_output_mode = 'formatted'")
