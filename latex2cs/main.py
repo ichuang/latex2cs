@@ -155,7 +155,7 @@ class latex2cs:
                         continue
                     question.set("has_solution", "1")
 
-                    qtext = "csq_explanation=r'''\n%s'''" % solution_xmlstr
+                    qtext = 'csq_explanation=r"""\n%s"""' % solution_xmlstr
                     qkey = hashlib.sha224(qtext.encode("utf8")).hexdigest()[:20]
                     self.explanations[qkey] = qtext
                     new_line = '[key:%s]' % qkey
@@ -323,6 +323,48 @@ csq_npoints = 0
 csq_output_mode = 'formatted'
 csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
 csq_solns = ["""see solution""", """."""]
+</question>'''
+        assert expect in xhtml
+
+    def test_solution1(self):
+        tex = r'''
+\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
+You are given a black box which takes single qubit
+          states $\rho_{in}$ as input
+
+\edXabox{type="custom" size=60 
+  	prompts="$E_0 = $","$E_1 = $"
+        answers="see solution","."
+	expect="zdamp" 
+        math="1"
+        inline="1"
+        cfn=check_osr2.catsoop_check_osr
+}
+
+\begin{edXsolution}
+This is an explanation
+\end{edXsolution}
+
+\end{edXproblem}
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        xhtml = l2c.convert(ofn=None)
+        print(xhtml)
+
+        expect = r'''<question pythonic>
+csq_check_function = check_osr2.catsoop_check_osr
+csq_inline = '1'
+csq_soln = 'zdamp'
+csq_options = {}
+csq_npoints = 0
+csq_output_mode = 'formatted'
+csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
+csq_solns = ["""see solution""", """."""]
+csq_explanation=r"""
+<solution>
+  <span>This is an explanation </span>
+</solution>
+"""
 </question>'''
         assert expect in xhtml
 
