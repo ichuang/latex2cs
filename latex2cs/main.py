@@ -24,6 +24,7 @@ class latex2cs:
         self.filters = [ self.filter_fix_math,
                          self.filter_fix_section_headers,
                          self.filter_fix_solutions, 
+                         self.filter_remmove_edxinclude, 
                          self.filter_fix_inline_prompts, 
                          self.process_includepy,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
@@ -129,6 +130,19 @@ class latex2cs:
         question.addprevious(new_q)
         question.getparent().remove(question)
         
+    def filter_remmove_edxinclude(self, xhtml):
+        '''
+        Remove <edxinclude>
+        '''
+        xml = self.str2xml(xhtml)
+        n = 0
+        for er in xml.findall(".//edxinclude"):
+            er.getparent().remove(er)
+            n += 1
+        if self.verbose:
+            print("[latex2cs] removed %d <edxinclude> lines" % n)
+        return etree.tostring(xml).decode("utf8")
+
     def filter_fix_inline_prompts(self, xhtml):
         '''
         Move inline prompts into question as csq_prompt or csq_prompts
