@@ -15,13 +15,16 @@ from .abox import AnswerBox
 # -----------------------------------------------------------------------------
 
 class latex2cs:
-    def __init__(self, fn, verbose=False, extra_filters=None):
-        self.fn = fn
+    def __init__(self, fn, latex_string=None, verbose=False, extra_filters=None, add_wrap=False):
+        self.fn = fn or ""
         self.verbose = verbose
+        self.latex_string = latex_string
+        self.add_wrap = add_wrap
         self.extra_filters = extra_filters or []
         self.filters = [ self.filter_fix_math,
                          self.filter_fix_section_headers,
                          self.filter_fix_solutions, 
+                         self.process_includepy,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
                          self.filter_fix_question,	# must be next-to-last, because the result is not XML strict
                          self.add_explanations,
@@ -29,14 +32,14 @@ class latex2cs:
         self.filters += self.extra_filters
         self.explanations = {}				# csq_explanations are added at the end, after pretty printing, to preserve pp
 
-    def convert(self):
+    def convert(self, ofn="content.md"):
         imdir = "."
         imurl = ""
         self.p2x = plastex2xhtml(self.fn,
                                  fp=None,
                                  extra_filters=None,
-                                 latex_string=None,
-                                 add_wrap=False,
+                                 latex_string=self.latex_string,
+                                 add_wrap=self.add_wrap,
                                  verbose=self.verbose,
                                  imdir=imdir,
                                  imurl=imurl,
@@ -49,10 +52,12 @@ class latex2cs:
         for ffn in self.filters:
             xhtml = ffn(xhtml)
 
-        ofn = "content.md"
-        with codecs.open(ofn, 'w', encoding="utf8") as ofp:
-            ofp.write(xhtml)
-            print("Wrote %s" % ofn)
+        if ofn:
+            with codecs.open(ofn, 'w', encoding="utf8") as ofp:
+                ofp.write(xhtml)
+                print("Wrote %s" % ofn)
+        else:
+            return xhtml
 
     def str2xml(self, xmlstr):
         '''
@@ -78,7 +83,7 @@ class latex2cs:
                 xml = xml.encode("utf8")
             if not isinstance(xml, bytes):
                 xml = etree.tostring(xml)
-                if self.verbose:
+                if self.verbose > 2:
                     print("[latex2cs] ran tostring on xml, producing type %s" % type(xml))
             # print("xml has type %s" % type(xml))
             p.stdin.write(xml)
@@ -103,6 +108,22 @@ class latex2cs:
         '''
         xhtml = re.sub('<question pythonic="1".*?>', "<question pythonic>", xhtml)
         return xhtml
+
+    def add_to_question(self, question, new_line):
+        '''
+        Add a new line to a <question> elment. 
+        Handle this by transforming into string, adding, and transfomring back, so
+        that elements in the string are not misorderd or otherwise mangled.
+
+        question = etree element
+        new_line = str
+        '''
+        qstr = etree.tostring(question).decode("utf8")
+        qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
+        new_q = etree.fromstring(qstr)
+        question.addprevious(new_q)
+        question.getparent().remove(question)
+        
 
     def filter_fix_solutions(self, xhtml):
         '''
@@ -133,16 +154,13 @@ class latex2cs:
                     if question.get("has_solution"):
                         continue
                     question.set("has_solution", "1")
-                    qstr = etree.tostring(question).decode("utf8")
 
                     qtext = "csq_explanation=r'''\n%s'''" % solution_xmlstr
                     qkey = hashlib.sha224(qtext.encode("utf8")).hexdigest()[:20]
                     self.explanations[qkey] = qtext
+                    new_line = '[key:%s]' % qkey
+                    self.add_to_question(question, new_line)
 
-                    qstr = qstr.replace("</question>", "[key:%s]\n</question>" % qkey)
-                    new_q = etree.fromstring(qstr)
-                    question.addprevious(new_q)
-                    question.getparent().remove(question)
                     moved = True
                     nmoved += 1
                 if not moved:
@@ -197,6 +215,34 @@ class latex2cs:
             xhtml = xhtml.replace("[/mathjax]", "</displaymath>")
         return xhtml
         
+    def process_includepy(self, xmlstr):
+        '''
+        For line like <edxincludepy linenum="87" filename="week1_3_osr.tex">lib/ps1/check_osr2.py</edxincludepy>
+        make sure the preload.py has the appropriate imports
+        '''
+        xml = self.str2xml(xmlstr)
+        ninc = 0
+        preload_fn = "preload.py"
+        for ipy in xml.findall(".//edxincludepy"):
+            pyfn = ipy.text.strip()
+            mname = os.path.basename(pyfn).split(".py", 1)[0]
+            inc = '%s = cs_local_python_import("%s")\n' % (mname, pyfn)
+            with open(preload_fn) as prefp:
+                preload = prefp.read()
+            if not inc in preload:
+                preload += "%s" % inc
+                with open(preload_fn, 'w') as prefp:
+                    prefp.write(preload)
+                ninc += 1
+            else:
+                if self.verbose:
+                    print("[latex2cs] include line for %s already in %s" % (pyfn, preload_fn))
+            ipy.getparent().remove(ipy)
+        if ninc:
+            print("[latex2cs] added %d python-code-include lines to %s" % (ninc, preload_fn))
+
+        return etree.tostring(xml).decode("utf8")
+
 
 # -----------------------------------------------------------------------------
 
@@ -220,4 +266,63 @@ def CommandLine():
     l2c = latex2cs(fn, verbose=opts.verbose)
     l2c.convert()
 
+
+#-----------------------------------------------------------------------------
+# unit tests
+
+import unittest
+
+class Test_latex2cs(unittest.TestCase):
+
+    def test_main1(self):
+        tex = r'''
+\begin{edXtext}{OSR Problems}
+{\LARGE The quantum operations formalism}
+
+	The interaction of any quantum
+	system with an environment can be mathematically expressed by
+	a \href{http://en.wikipedia.org/wiki/Quantum_operation}{\em quantum operation}, ${\cal E}(\rho)$, defined as
+	\be
+		{\cal E}(\rho) = \sum_k E_k \rho E_k^\dagger
+	\,,
+	\ee
+\end{edXtext}
+        '''
+        l2c = latex2cs(None, verbose=True, latex_string=tex, add_wrap=True)
+        xhtml = l2c.convert(ofn=None)
+        print(xhtml)
+        assert '''<html display_name="OSR Problems"''' in xhtml
+
+    def test_question1(self):
+        tex = r'''
+\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
+You are given a black box which takes single qubit
+          states $\rho_{in}$ as input
+
+\edXabox{type="custom" size=60 
+  	prompts="$E_0 = $","$E_1 = $"
+        answers="see solution","."
+	expect="zdamp" 
+        math="1"
+        inline="1"
+        cfn=check_osr2.catsoop_check_osr
+}
+
+\end{edXproblem}
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        xhtml = l2c.convert(ofn=None)
+        print(xhtml)
+
+        expect = r'''<question pythonic>
+csq_check_function = check_osr2.catsoop_check_osr
+csq_inline = '1'
+csq_soln = 'zdamp'
+csq_options = {}
+csq_npoints = 0
+csq_output_mode = 'formatted'
+csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
+csq_solns = ["""see solution""", """."""]
+</question>'''
+        assert expect in xhtml
 
