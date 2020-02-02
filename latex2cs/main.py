@@ -34,8 +34,11 @@ class latex2cs:
         self.explanations = {}				# csq_explanations are added at the end, after pretty printing, to preserve pp
 
     def convert(self, ofn="content.md"):
-        imdir = "."
+        imdir = "__STATIC__"
         imurl = ""
+        imurl_fmt = "CURRENT/{fnbase}"
+        if not os.path.exists(imdir):
+            os.mkdir(imdir)
         self.p2x = plastex2xhtml(self.fn,
                                  fp=None,
                                  extra_filters=None,
@@ -45,6 +48,7 @@ class latex2cs:
                                  imdir=imdir,
                                  imurl=imurl,
                                  abox=AnswerBox,
+                                 imurl_fmt=imurl_fmt,
                                  )
         self.p2x.convert()
         self.xhtml = self.p2x.xhtml
@@ -286,150 +290,4 @@ def CommandLine():
     l2c = latex2cs(fn, verbose=opts.verbose)
     l2c.convert()
 
-
-#-----------------------------------------------------------------------------
-# unit tests
-
-import unittest
-
-class Test_latex2cs(unittest.TestCase):
-
-    def test_main1(self):
-        tex = r'''
-\begin{edXtext}{OSR Problems}
-{\LARGE The quantum operations formalism}
-
-	The interaction of any quantum
-	system with an environment can be mathematically expressed by
-	a \href{http://en.wikipedia.org/wiki/Quantum_operation}{\em quantum operation}, ${\cal E}(\rho)$, defined as
-	\be
-		{\cal E}(\rho) = \sum_k E_k \rho E_k^\dagger
-	\,,
-	\ee
-\end{edXtext}
-        '''
-        l2c = latex2cs(None, verbose=True, latex_string=tex, add_wrap=True)
-        xhtml = l2c.convert(ofn=None)
-        print(xhtml)
-        assert '''<html display_name="OSR Problems"''' in xhtml
-
-    def test_question1(self):
-        tex = r'''
-\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
-You are given a black box which takes single qubit
-          states $\rho_{in}$ as input
-
-\edXabox{type="custom" size=60 
-  	prompts="$E_0 = $","$E_1 = $"
-        answers="see solution","."
-	expect="zdamp" 
-        math="1"
-        inline="1"
-        cfn=check_osr2.catsoop_check_osr
-}
-
-\end{edXproblem}
-        '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
-        xhtml = l2c.convert(ofn=None)
-        print(xhtml)
-
-        expect = r'''<question pythonic>
-csq_check_function = check_osr2.catsoop_check_osr
-csq_inline = '1'
-csq_soln = 'zdamp'
-csq_options = {}
-csq_npoints = 0
-csq_output_mode = 'formatted'
-csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
-csq_solns = ["""see solution""", """."""]
-</question>'''
-        assert expect in xhtml
-
-    def test_solution1(self):
-        tex = r'''
-\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
-You are given a black box which takes single qubit
-          states $\rho_{in}$ as input
-
-\edXabox{type="custom" size=60 
-  	prompts="$E_0 = $","$E_1 = $"
-        answers="see solution","."
-	expect="zdamp" 
-        math="1"
-        inline="1"
-        cfn=check_osr2.catsoop_check_osr
-}
-
-\begin{edXsolution}
-This is an explanation
-\end{edXsolution}
-
-\end{edXproblem}
-        '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
-        xhtml = l2c.convert(ofn=None)
-        print(xhtml)
-
-        expect = r'''<question pythonic>
-csq_check_function = check_osr2.catsoop_check_osr
-csq_inline = '1'
-csq_soln = 'zdamp'
-csq_options = {}
-csq_npoints = 0
-csq_output_mode = 'formatted'
-csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
-csq_solns = ["""see solution""", """."""]
-csq_explanation=r"""
-<solution>
-  <span>This is an explanation </span>
-</solution>
-"""
-</question>'''
-        assert expect in xhtml
-
-
-    def test_prompt1(self):
-        tex = r'''
-\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
-You are given a black box which takes single qubit
-          states $\rho_{in}$ as input
-
-\edXinline{$g = $} 
-\edXabox{type="custom" 
-  size=30 
-  expect="2*p-1" 
-  cfn=check_osr2.catsoop_sympy_formula_check
-  inline="1"
-  math="1"
-  hints="myhints"
-}
-
-\begin{edXsolution}
-This is an explanation
-\end{edXsolution}
-
-\end{edXproblem}
-        '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
-        xhtml = l2c.convert(ofn=None)
-        print(xhtml)
-
-        expect = r'''<question pythonic>
-csq_check_function = check_osr2.catsoop_sympy_formula_check
-csq_inline = '1'
-csq_soln = '2*p-1'
-csq_options = {}
-csq_npoints = 0
-csq_output_mode = 'formatted'
-csq_prompts = [""""""]
-csq_solns = ["""2*p-1"""]
-csq_explanation=r"""
-<solution>
-  <span>This is an explanation </span>
-</solution>
-"""
-csq_prompts = ["""<math>g =</math>"""]
-</question>'''
-        assert expect in xhtml
 
