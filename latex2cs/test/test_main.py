@@ -165,3 +165,23 @@ You are given a black box which takes single qubit
         expect = r'''<img src="CURRENT/image.png" width="400"/>'''
         assert expect in xhtml
 
+    def test_showhide1(self):
+        tex = r'''
+\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
+You are given a black box which takes single qubit
+
+\begin{edXshowhide}{Instructions for entering answer}
+Please enter each operation element as a matrix, using nested lists delimited by square brackets. 
+\end{edXshowhide}
+
+test
+
+\end{edXproblem}
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        xhtml = l2c.convert(ofn=None)
+        print(xhtml)
+
+        expect = r'''<div description="Instructions for entering answer" id="showhide_2ee9cba29be94a952e3c"'''
+        assert expect in xhtml
+

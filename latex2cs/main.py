@@ -27,12 +27,14 @@ class latex2cs:
                          self.filter_remmove_edxinclude, 
                          self.filter_fix_inline_prompts, 
                          self.process_includepy,
+                         self.process_showhide,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
                          self.filter_fix_question,	# must be next-to-last, because the result is not XML strict
                          self.add_explanations,
         ]
         self.filters += self.extra_filters
         self.explanations = {}				# csq_explanations are added at the end, after pretty printing, to preserve pp
+        self.showhide_installed = False
 
     def convert(self, ofn="content.md"):
         imdir = "__STATIC__"
@@ -106,6 +108,44 @@ class latex2cs:
         if xml.startswith('<?xml '):
             xml = xml.split('\n', 1)[1]
         return xml
+
+    def process_showhide(self, xhtml):
+        xml = self.str2xml(xhtml)
+        n = 0
+        for sh in xml.findall(".//edxshowhide"):
+            sh.tag = "div"
+            shstr = etree.tostring(sh).decode("utf8")
+            shkey = hashlib.sha224(shstr.encode("utf8")).hexdigest()[:20]
+            shkey = "showhide_%s" % shkey
+            sh.set("id", shkey)
+            sh.set("style", "border: 2px solid;border-color:blue;border-radius:10px")
+            script = etree.Element("script")
+            script.set("type", "text/javascript")
+            script.text = 'add_showhide_ws("%s");' % shkey
+            sh.addprevious(script)
+            n += 1
+        if n:
+            self.ensure_add_showhide(xml)
+            if self.verbose:
+                print("[latex2cs] processed %d <edxshowhide> stanzas" % n)
+        return etree.tostring(xml).decode("utf8")
+
+    def ensure_add_showhide(self, xml):
+        if self.showhide_installed:
+            return
+        doc = xml
+        script = etree.Element("script")
+        script.set("type", "text/javascript")
+        script.set("src", "CURRENT/showhide.js")
+        doc.insert(0, script)
+        self.showhide_installed = True
+        sdir = "__STATIC__"
+        jsfn = "%s/lib/showhide.js" % os.path.dirname(os.path.abspath(__file__))
+        sjsfn = "%s/%s" % (sdir, os.path.basename(jsfn))
+        if not os.path.exists(sjsfn):
+            os.system("cp %s %s" % (jsfn, sjsfn))
+            print("[latex2cs] Copied %s to %s" % (jsfn, sjsfn))
+
 
     def filter_fix_question(self, xhtml):
         '''
