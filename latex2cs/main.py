@@ -118,7 +118,7 @@ class latex2cs:
             shkey = hashlib.sha224(shstr.encode("utf8")).hexdigest()[:20]
             shkey = "showhide_%s" % shkey
             sh.set("id", shkey)
-            sh.set("style", "border: 2px solid;border-color:blue;border-radius:10px")
+            sh.set("style", "border: 2px solid;border-color:blue;border-radius:10px;padding-left:10px")
             script = etree.Element("script")
             script.set("type", "text/javascript")
             script.text = 'add_showhide_ws("%s");' % shkey
