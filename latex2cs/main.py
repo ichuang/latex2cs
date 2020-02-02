@@ -24,6 +24,7 @@ class latex2cs:
         self.filters = [ self.filter_fix_math,
                          self.filter_fix_section_headers,
                          self.filter_fix_solutions, 
+                         self.filter_fix_inline_prompts, 
                          self.process_includepy,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
                          self.filter_fix_question,	# must be next-to-last, because the result is not XML strict
@@ -124,6 +125,25 @@ class latex2cs:
         question.addprevious(new_q)
         question.getparent().remove(question)
         
+    def filter_fix_inline_prompts(self, xhtml):
+        '''
+        Move inline prompts into question as csq_prompt or csq_prompts
+        '''
+        xml = self.str2xml(xhtml)
+        nprompts = 0
+        for question in xml.findall(".//question"):
+            prev = question.getprevious()
+            if prev is not None and prev.tag=="p" and prev.get("style")=="display:inline":
+                prompt = etree.tostring(prev[0]).decode("utf8")
+                prev.getparent().remove(prev)
+                new_line = 'csq_prompts = ["""%s"""]' % prompt
+                self.add_to_question(question, new_line)
+                nprompts += 1
+        
+        if self.verbose:
+            print("[latex2cs] moving %s prompts to their following question" % nprompts)
+        return etree.tostring(xml).decode("utf8")
+
 
     def filter_fix_solutions(self, xhtml):
         '''
@@ -365,6 +385,51 @@ csq_explanation=r"""
   <span>This is an explanation </span>
 </solution>
 """
+</question>'''
+        assert expect in xhtml
+
+
+    def test_prompt1(self):
+        tex = r'''
+\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
+You are given a black box which takes single qubit
+          states $\rho_{in}$ as input
+
+\edXinline{$g = $} 
+\edXabox{type="custom" 
+  size=30 
+  expect="2*p-1" 
+  cfn=check_osr2.catsoop_sympy_formula_check
+  inline="1"
+  math="1"
+  hints="myhints"
+}
+
+\begin{edXsolution}
+This is an explanation
+\end{edXsolution}
+
+\end{edXproblem}
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        xhtml = l2c.convert(ofn=None)
+        print(xhtml)
+
+        expect = r'''<question pythonic>
+csq_check_function = check_osr2.catsoop_sympy_formula_check
+csq_inline = '1'
+csq_soln = '2*p-1'
+csq_options = {}
+csq_npoints = 0
+csq_output_mode = 'formatted'
+csq_prompts = [""""""]
+csq_solns = ["""2*p-1"""]
+csq_explanation=r"""
+<solution>
+  <span>This is an explanation </span>
+</solution>
+"""
+csq_prompts = ["""<math>g =</math>"""]
 </question>'''
         assert expect in xhtml
 
