@@ -116,6 +116,14 @@ class AnswerBox:
         
         xs.append("csq_prompts = [%s]" % ", ".join([ self.quoteit(x) for x in prompts ]))
         xs.append("csq_solns = [%s]" % ", ".join([ self.quoteit(x) for x in answers ]))
+
+        if 'hints' in abargs:
+            hname = self.stripquotes(abargs['hints'])
+            xs.append("# HINT for: %s" % hname)
+            xs.append("# ===HINT-DEFINITION===")
+            xs.append("hs = general_hint_system.HintSystem(hints=%s)" % hname)
+            xs.append("csq_check_function = hs.catsoop_check_hint(csq_check_function)")
+
         return xs
 
     def quoteit(self, x):

@@ -5,7 +5,7 @@ import re
 import sys
 import codecs
 import hashlib
-import optparse
+import argparse
 import subprocess
 from lxml import etree
 from latex2edx.plastexit import plastex2xhtml
@@ -15,16 +15,24 @@ from .abox import AnswerBox
 # -----------------------------------------------------------------------------
 
 class latex2cs:
-    def __init__(self, fn, latex_string=None, verbose=False, extra_filters=None, add_wrap=False):
+    def __init__(self, fn, latex_string=None, verbose=False, extra_filters=None, add_wrap=False, lib_dir=".", do_not_copy_files=False):
+        '''
+        fn = tex filename
+        latex_string = (str) latex string to process (instead of reading from file)
+        lib_dir = (str) path where python files (if any, e.g. for the general hint system) should be copied to and imported from
+        '''
         self.fn = fn or ""
         self.verbose = verbose
         self.latex_string = latex_string
         self.add_wrap = add_wrap
+        self.lib_dir = lib_dir
         self.extra_filters = extra_filters or []
+        self.do_not_copy_files = do_not_copy_files	# used in testing
         self.filters = [ self.filter_fix_math,
                          self.filter_fix_section_headers,
                          self.filter_fix_solutions, 
                          self.filter_remmove_edxinclude, 
+                         self.filter_fix_hint_definitions,
                          self.filter_fix_inline_prompts, 
                          self.process_includepy,
                          self.process_showhide,
@@ -35,6 +43,7 @@ class latex2cs:
         self.filters += self.extra_filters
         self.explanations = {}				# csq_explanations are added at the end, after pretty printing, to preserve pp
         self.showhide_installed = False
+        self.general_hint_system_installed = False	# if hints are used, the supporting python scripts must be in the library, and be imported
 
     def convert(self, ofn="content.md"):
         imdir = "__STATIC__"
@@ -130,7 +139,42 @@ class latex2cs:
                 print("[latex2cs] processed %d <edxshowhide> stanzas" % n)
         return etree.tostring(xml).decode("utf8")
 
+    def ensure_general_hint_system_installed(self):
+        '''
+        Ensure ghs code is installed
+        '''
+        if self.general_hint_system_installed:
+            return
+        preload_fn = "preload.py"
+        syslib_dir = "%s/lib" % os.path.dirname(os.path.abspath(__file__))
+        with open("%s/preload_code.py" % syslib_dir) as fp:
+            preload_code = fp.read()
+
+        userlib_cfn = "%s/calc.py" % self.lib_dir
+        if not os.path.exists(userlib_cfn):
+            if not self.do_not_copy_files:
+                os.system("cp %s/calc.py %s" % (syslib_dir, userlib_cfn))
+            print("[latex2cs] copied calc.py to %s" % userlib_cfn)
+
+        userlib_gfn = "%s/general_hint_system.py" % self.lib_dir
+        if not os.path.exists(userlib_gfn):
+            if not self.do_not_copy_files:
+                os.system("cp %s/general_hint_system.py %s" % (syslib_dir, userlib_gfn))
+            print("[latex2cs] copied general_hint_system.py to %s" % userlib_gfn)
+
+        preload_code = preload_code.format(calc=userlib_cfn, general_hint_system=userlib_gfn)
+        preload = self.get_preload_py()
+        if not preload_code in preload:
+            with open(preload_fn, 'w') as prefp:
+                prefp.write(preload_code)
+            print("[latex2cs] Added code for calc and general_hint_system to preload.py")
+
+        self.general_hint_system_installed = True
+
     def ensure_add_showhide(self, xml):
+        '''
+        Ensure showhide javascript is installed
+        '''
         if self.showhide_installed:
             return
         doc = xml
@@ -143,7 +187,8 @@ class latex2cs:
         jsfn = "%s/lib/showhide.js" % os.path.dirname(os.path.abspath(__file__))
         sjsfn = "%s/%s" % (sdir, os.path.basename(jsfn))
         if not os.path.exists(sjsfn):
-            os.system("cp %s %s" % (jsfn, sjsfn))
+            if not self.do_not_copy_files:
+                os.system("cp %s %s" % (jsfn, sjsfn))
             print("[latex2cs] Copied %s to %s" % (jsfn, sjsfn))
 
 
@@ -155,7 +200,7 @@ class latex2cs:
         xhtml = re.sub('<question pythonic="1".*?>', "<question pythonic>", xhtml)
         return xhtml
 
-    def add_to_question(self, question, new_line):
+    def add_to_question(self, question, new_line, replacement_key=None):
         '''
         Add a new line to a <question> elment. 
         Handle this by transforming into string, adding, and transfomring back, so
@@ -163,9 +208,13 @@ class latex2cs:
 
         question = etree element
         new_line = str
+        replacement_key = (str) if provided, use this for the search and replace, instead of adding to end
         '''
         qstr = etree.tostring(question).decode("utf8")
-        qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
+        if replacement_key:
+            qstr = qstr.replace(replacement_key, new_line)
+        else:
+            qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
         new_q = etree.fromstring(qstr)
         question.addprevious(new_q)
         question.getparent().remove(question)
@@ -199,7 +248,7 @@ class latex2cs:
                 nprompts += 1
         
         if self.verbose:
-            print("[latex2cs] moving %s prompts to their following question" % nprompts)
+            print("[latex2cs] moved %s prompts to their following question" % nprompts)
         return etree.tostring(xml).decode("utf8")
 
 
@@ -245,7 +294,47 @@ class latex2cs:
                     print("[latex2cs] Error!  Could not find question to move solution into: %s" % solution_xmlstr)
 
         if self.verbose:
-            print("[latex2cs] moving %s solutions to their nearest question" % nmoved)
+            print("[latex2cs] moved %s solutions to their nearest question" % nmoved)
+        return etree.tostring(xml).decode("utf8")
+
+    def filter_fix_hint_definitions(self, xhtml):
+        '''
+        move <script> contents where hints are defined, into nearest pythonic question
+        '''
+        xml = self.str2xml(xhtml)
+        nmoved = 0
+
+        for problem in xml.findall(".//problem"):
+            for script in problem.findall(".//script"):
+
+                # script_xmlstr = self.pp_xml(script)
+                script_code = script.text
+                parent = script.getparent()
+                parent.remove(script)
+
+                cnt = 0
+                while (parent.find(".//question") is None) and (cnt < 5) and (parent.find(".//problem") is None):
+                    parent = parent.getparent()
+                    cnt += 1
+
+                moved = False
+                for question in parent.findall(".//question"):
+                    if question.get("has_script"):
+                        continue
+                    question.set("has_script", "1")
+
+                    key = '# ===HINT-DEFINITION==='
+                    self.add_to_question(question, script_code, key)
+
+                    moved = True
+                    nmoved += 1
+                if not moved:
+                    print("[latex2cs] Error!  Could not find question to move script into: %s" % script_code)
+
+        if "===HINT-DEFINITION===" in xhtml:
+            self.ensure_general_hint_system_installed()
+            if self.verbose:
+                print("[latex2cs] moved %s scripts to their nearest question" % nmoved)
         return etree.tostring(xml).decode("utf8")
 
     def add_explanations(self, xmlstr):
@@ -293,6 +382,17 @@ class latex2cs:
             xhtml = xhtml.replace("[/mathjax]", "</displaymath>")
         return xhtml
         
+    def get_preload_py(self):
+        '''
+        Read contents of preload.py and return.
+        '''
+        preload_fn = "preload.py"
+        if os.path.exists(preload_fn):
+            with open(preload_fn) as fp:
+                preload = fp.read()
+            return preload
+        return ""
+
     def process_includepy(self, xmlstr):
         '''
         For line like <edxincludepy linenum="87" filename="week1_3_osr.tex">lib/ps1/check_osr2.py</edxincludepy>
@@ -305,8 +405,7 @@ class latex2cs:
             pyfn = ipy.text.strip()
             mname = os.path.basename(pyfn).split(".py", 1)[0]
             inc = '%s = cs_local_python_import("%s")\n' % (mname, pyfn)
-            with open(preload_fn) as prefp:
-                preload = prefp.read()
+            preload = self.get_preload_py()
             if not inc in preload:
                 preload += "%s" % inc
                 with open(preload_fn, 'w') as prefp:
@@ -322,26 +421,40 @@ class latex2cs:
         return etree.tostring(xml).decode("utf8")
 
 
+#-----------------------------------------------------------------------------
+
+class VAction(argparse.Action):
+    def __call__(self, parser, args, values, option_string=None):
+        curval = getattr(args, self.dest, 0) or 0
+        values=values.count('v')+1
+        setattr(args, self.dest, values + curval)
+
 # -----------------------------------------------------------------------------
 
-def CommandLine():
+def CommandLine(args=None, arglist=None):
+    '''
+    Main command line.  Accepts args, to allow for simple unit testing.
+    '''
     import pkg_resources  # part of setuptools
+
     version = pkg_resources.require("latex2cs")[0].version
-    parser = optparse.OptionParser(usage="usage: %prog [options] filename.tex",
-                                   version="%prog version " + version)
-    parser.add_option('-v', '--verbose',
-                      dest='verbose',
-                      default=False, action='store_true',
-                      help='verbose error messages')
-    (opts, args) = parser.parse_args()
+    help_text = """usage: latex2cs [options] latex_file.tex
 
-    if len(args) < 1:
-        print('latex2cs: wrong number of arguments')
-        parser.print_help()
-        sys.exit(-2)
-    fn = args[0]
+Version: {}
 
-    l2c = latex2cs(fn, verbose=opts.verbose)
+""".format(version)
+
+
+    parser = argparse.ArgumentParser(description=help_text, formatter_class=argparse.RawTextHelpFormatter)
+
+    parser.add_argument("texfile", help="tex file")
+    parser.add_argument('-v', "--verbose", nargs=0, help="increase output verbosity (add more -v to increase versbosity)", action=VAction, dest='verbose')
+    parser.add_argument("--lib-dir", help="library directory for python scripts", default=".")
+
+    if not args:
+        args = parser.parse_args(arglist)
+
+    l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir)
     l2c.convert()
 
 

@@ -22,7 +22,7 @@ class Test_latex2cs(unittest.TestCase):
 	\ee
 \end{edXtext}
         '''
-        l2c = latex2cs(None, verbose=True, latex_string=tex, add_wrap=True)
+        l2c = latex2cs(None, verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
         xhtml = l2c.convert(ofn=None)
         print(xhtml)
         assert '''<html display_name="OSR Problems"''' in xhtml
@@ -44,7 +44,7 @@ You are given a black box which takes single qubit
 
 \end{edXproblem}
         '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
         xhtml = l2c.convert(ofn=None)
         print(xhtml)
 
@@ -81,7 +81,7 @@ This is an explanation
 
 \end{edXproblem}
         '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
         xhtml = l2c.convert(ofn=None)
         print(xhtml)
 
@@ -125,7 +125,7 @@ This is an explanation
 
 \end{edXproblem}
         '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
         xhtml = l2c.convert(ofn=None)
         print(xhtml)
 
@@ -138,6 +138,10 @@ csq_npoints = 0
 csq_output_mode = 'formatted'
 csq_prompts = [""""""]
 csq_solns = ["""2*p-1"""]
+# HINT for: myhints
+# ===HINT-DEFINITION===
+hs = general_hint_system.HintSystem(hints=myhints)
+csq_check_function = hs.catsoop_check_hint(csq_check_function)
 csq_explanation=r"""
 <solution>
   <span>This is an explanation </span>
@@ -158,7 +162,7 @@ You are given a black box which takes single qubit
 
 \end{edXproblem}
         ''' % imfn
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
         xhtml = l2c.convert(ofn=None)
         print(xhtml)
 
@@ -178,10 +182,54 @@ test
 
 \end{edXproblem}
         '''
-        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True)
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
         xhtml = l2c.convert(ofn=None)
         print(xhtml)
 
         expect = r'''<div description="Instructions for entering answer" id="showhide_2ee9cba29be94a952e3c"'''
         assert expect in xhtml
 
+    def test_hint1(self):
+        tex = r'''
+\begin{edXproblem}{Operator Sum Representation: Projection}{url_name=s12-wk1-osr-ex1 attempts=10}
+You are given a black box which takes single qubit
+
+
+\begin{edXscript}
+
+myhints = [ {'eval': "not string('*')", 'hint': 'Remember to explicitly indicate multiplication with *'},
+            {'eval': "not symbol('p')", 'hint': "Shouldn't your answer depend on p?"},
+          ]
+  
+\end{edXscript}
+
+\edXinline{$g = $} 
+\edXabox{type="custom" 
+  size=30 
+  expect="2*p-1" 
+  cfn=catsoop_sympy_formula_check
+  inline="1"
+  math="1"
+  hints="myhints"
+}
+
+Done
+
+\end{edXproblem}
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
+        xhtml = l2c.convert(ofn=None)
+        print(xhtml)
+
+        expect = r'''# HINT for: myhints
+
+
+myhints = [ {'eval': "not string('*')", 'hint': 'Remember to explicitly indicate multiplication with *'},
+            {'eval': "not symbol('p')", 'hint': "Shouldn't your answer depend on p?"},
+          ]
+  
+
+hs = general_hint_system.HintSystem(hints=myhints)
+csq_check_function = hs.catsoop_check_hint(csq_check_function)
+'''
+        assert expect in xhtml
