@@ -57,6 +57,7 @@ csq_npoints = 0
 csq_output_mode = 'formatted'
 csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
 csq_solns = ["""see solution""", """."""]
+csq_nsubmits = 10
 </question>'''
         assert expect in xhtml
 
@@ -99,6 +100,7 @@ csq_explanation=r"""
   <span>This is an explanation </span>
 </solution>
 """
+csq_nsubmits = 10
 </question>'''
         assert expect in xhtml
 
@@ -148,6 +150,7 @@ csq_explanation=r"""
 </solution>
 """
 csq_prompts = ["""<math>g =</math>"""]
+csq_nsubmits = 10
 </question>'''
         assert expect in xhtml
 

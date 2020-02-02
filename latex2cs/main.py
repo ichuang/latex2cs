@@ -11,6 +11,7 @@ from lxml import etree
 from latex2edx.plastexit import plastex2xhtml
 
 from .abox import AnswerBox
+from .abox import split_args_with_quoted_strings
 
 # -----------------------------------------------------------------------------
 
@@ -29,11 +30,13 @@ class latex2cs:
         self.extra_filters = extra_filters or []
         self.do_not_copy_files = do_not_copy_files	# used in testing
         self.filters = [ self.filter_fix_math,
+                         self.fix_attrib_string,
                          self.filter_fix_section_headers,
                          self.filter_fix_solutions, 
                          self.filter_remmove_edxinclude, 
                          self.filter_fix_hint_definitions,
                          self.filter_fix_inline_prompts, 
+                         self.filter_fix_nsubmits, 
                          self.process_includepy,
                          self.process_showhide,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
@@ -251,6 +254,74 @@ class latex2cs:
             print("[latex2cs] moved %s prompts to their following question" % nprompts)
         return etree.tostring(xml).decode("utf8")
 
+    @staticmethod
+    def do_attrib_string(elem):
+        '''
+        parse attribute strings, and add to xml elements.
+        attribute strings are space delimited, and optional for elements
+        like chapter, sequential, vertical, text
+        '''
+        attrib_string = elem.get('attrib_string', '')
+        if attrib_string:
+            attrib_list = split_args_with_quoted_strings(attrib_string)
+            if len(attrib_list) == 1 & len(attrib_list[0].split('=')) == 1:  # a single number n is interpreted as weight="n"
+                elem.set('weight', attrib_list[0])
+            else:  # the normal case, can remove backwards compatibility later if desired
+                for s in attrib_list:
+                    attrib_and_val = s.split('=')
+                    if len(attrib_and_val) != 2:
+                        print("ERROR! the attribute list '%s' for element %s is not properly formatted" % (attrib_string, elem.tag))
+                        # print "attrib_and_val=%s" % attrib_and_val
+                        print(etree.tostring(elem))
+                        sys.exit(-1)
+                    elem.set(attrib_and_val[0], attrib_and_val[1].strip("\""))  # remove extra quotes
+        if 'attrib_string' in list(elem.keys()):
+            elem.attrib.pop('attrib_string')  # remove attrib_string
+
+    def fix_attrib_string(self, xmlstr):
+        '''
+        Convert attrib_string in <problem>, <chapter>, etc. to attributes, intelligently.
+        '''
+        TAGS = ['problem', 'chapter', 'sequential', 'vertical', 'course', 'html', 'video', 'discussion', 'edxdndtex',
+                'conditional', 'lti', 'split_test']
+        xml = self.str2xml(xmlstr)
+        for tag in TAGS:
+            for elem in xml.findall('.//%s' % tag):
+                self.do_attrib_string(elem)
+        return etree.tostring(xml).decode("utf8")
+
+
+    def filter_fix_nsubmits(self, xhtml):
+        '''
+        If max number of attempts (csq_nsubmits) is not specified, then inherit it from the enclosing <problem>
+        '''
+        xml = self.str2xml(xhtml)
+        n = 0
+        for question in xml.findall(".//question"):
+            if "csq_nsubmits" in etree.tostring(question).decode("utf8"):
+                continue
+            parent = question.getparent()
+            cnt = 0
+            while not parent.tag=="problem" and cnt < 10:
+                parent = parent.getparent()
+                cnt += 1
+            problem = parent
+            attempts = problem.get("attempts")
+            if not attempts:
+                print("[latex2cs] warning - problem has no max attempts specified: %s" % problem)
+                continue
+            try:
+                attempts = int(attempts)
+            except Exception as err:
+                print("[latex2cs] cannot parse attempts=%s for problem %s" % (attempts, problem))
+                continue
+            new_line = "csq_nsubmits = %s" % attempts
+            self.add_to_question(question, new_line)
+            n += 1
+        
+        if n and self.verbose:
+            print("[latex2cs] fixed %d questions to have csq_nsubmits defined" % n)
+        return etree.tostring(xml).decode("utf8")
 
     def filter_fix_solutions(self, xhtml):
         '''
@@ -262,7 +333,7 @@ class latex2cs:
         for problem in xml.findall(".//problem"):
             for solution in problem.findall(".//solution"):
 
-                bhead = solution.xpath('.//b[text()="Solution:"]')	# remove <b>Solution:</b> and is containing <p>, if present
+                bhead = solution.xpath('.//b[text()="Solution:"]')      # remove <b>Solution:</b> and is containing <p>, if present
                 if bhead:
                     bhead = bhead[0]
                     bp = bhead.getparent()
