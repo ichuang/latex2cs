@@ -23,7 +23,7 @@ class Test_latex2cs(unittest.TestCase):
 \end{edXtext}
         '''
         l2c = latex2cs(None, verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
         assert '''<html display_name="OSR Problems"''' in xhtml
 
@@ -45,7 +45,7 @@ You are given a black box which takes single qubit
 \end{edXproblem}
         '''
         l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
 
         expect = r'''<question pythonic>
@@ -84,7 +84,7 @@ This is an explanation
 \end{edXproblem}
         '''
         l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
 
         expect = r'''<question pythonic>
@@ -130,7 +130,7 @@ This is an explanation
 \end{edXproblem}
         '''
         l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
 
         expect = r'''<question pythonic>
@@ -169,7 +169,7 @@ You are given a black box which takes single qubit
 \end{edXproblem}
         ''' % imfn
         l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
 
         expect = r'''<img src="CURRENT/image.png" width="400"/>'''
@@ -189,7 +189,7 @@ test
 \end{edXproblem}
         '''
         l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
 
         expect = r'''<div description="Instructions for entering answer" id="showhide_2ee9cba29be94a952e3c"'''
@@ -224,7 +224,7 @@ Done
 \end{edXproblem}
         '''
         l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
-        xhtml = l2c.convert(ofn=None)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
         print(xhtml)
 
         expect = r'''# HINT for: myhints

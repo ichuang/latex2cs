@@ -48,13 +48,11 @@ class latex2cs:
         self.showhide_installed = False
         self.general_hint_system_installed = False	# if hints are used, the supporting python scripts must be in the library, and be imported
 
-    def convert(self, ofn=""):
+    def convert(self, ofn=None, skip_output=False):
         imdir = "__STATIC__"
         imurl = ""
         imurl_fmt = "CURRENT/{fnbase}"
-        ofn = ofn
-        if ofn=="":
-            self.fn.replace(".tex", ".md")
+        ofn = ofn or self.fn.replace(".tex", ".md")
         if not os.path.exists(imdir):
             os.mkdir(imdir)
         self.p2x = plastex2xhtml(self.fn,
@@ -75,12 +73,13 @@ class latex2cs:
         for ffn in self.filters:
             xhtml = ffn(xhtml)
 
+        if skip_output:
+            return xhtml
+
         if ofn:
             with codecs.open(ofn, 'w', encoding="utf8") as ofp:
                 ofp.write(xhtml)
                 print("Wrote %s" % ofn)
-        else:
-            return xhtml
 
     def str2xml(self, xmlstr):
         '''
@@ -526,7 +525,7 @@ Version: {}
     parser.add_argument("texfile", help="tex file")
     parser.add_argument('-v', "--verbose", nargs=0, help="increase output verbosity (add more -v to increase versbosity)", action=VAction, dest='verbose')
     parser.add_argument("--lib-dir", help="library directory for python scripts", default=".")
-    parser.add_argument("-o", "--output", help="output filename", default=None)
+    parser.add_argument("-o", "--output", help="output filename", default="")
     parser.add_argument("--add-wrap", help="add begin{document}...end{document} wrapper around tex", action="store_true")
 
     if not args:
