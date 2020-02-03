@@ -48,10 +48,11 @@ class latex2cs:
         self.showhide_installed = False
         self.general_hint_system_installed = False	# if hints are used, the supporting python scripts must be in the library, and be imported
 
-    def convert(self, ofn="content.md"):
+    def convert(self, ofn=None):
         imdir = "__STATIC__"
         imurl = ""
         imurl_fmt = "CURRENT/{fnbase}"
+        ofn = ofn or self.fn.replace(".tex", ".md")
         if not os.path.exists(imdir):
             os.mkdir(imdir)
         self.p2x = plastex2xhtml(self.fn,
@@ -169,7 +170,8 @@ class latex2cs:
         preload = self.get_preload_py()
         if not preload_code in preload:
             with open(preload_fn, 'w') as prefp:
-                prefp.write(preload_code)
+                preload += preload_code
+                prefp.write(preload)
             print("[latex2cs] Added code for calc and general_hint_system to preload.py")
 
         self.general_hint_system_installed = True
@@ -243,10 +245,10 @@ class latex2cs:
         nprompts = 0
         for question in xml.findall(".//question"):
             prev = question.getprevious()
-            if prev is not None and prev.tag=="p" and prev.get("style")=="display:inline":
+            if prev is not None and len(prev) and prev.tag=="p" and prev.get("style")=="display:inline":
                 prompt = etree.tostring(prev[0]).decode("utf8")
                 prev.getparent().remove(prev)
-                new_line = 'csq_prompts = ["""%s"""]' % prompt
+                new_line = 'csq_prompts = [r"""%s"""]' % prompt
                 self.add_to_question(question, new_line)
                 nprompts += 1
         
@@ -521,11 +523,12 @@ Version: {}
     parser.add_argument("texfile", help="tex file")
     parser.add_argument('-v', "--verbose", nargs=0, help="increase output verbosity (add more -v to increase versbosity)", action=VAction, dest='verbose')
     parser.add_argument("--lib-dir", help="library directory for python scripts", default=".")
+    parser.add_argument("-o", "--output", help="output filename", default=None)
 
     if not args:
         args = parser.parse_args(arglist)
 
     l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir)
-    l2c.convert()
+    l2c.convert(ofn=args.output)
 
 

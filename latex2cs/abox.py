@@ -127,7 +127,7 @@ class AnswerBox:
         return xs
 
     def quoteit(self, x):
-        return '"""%s"""' % x
+        return 'r"""%s"""' % x
 
     def get_options(self, abargs, arg='options'):
         optstr = abargs[arg]			# should be double quoted strings, comma delimited
