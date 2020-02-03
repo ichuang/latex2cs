@@ -96,6 +96,15 @@ class AnswerBox:
         self.copy_attrib(xs, 'npoints', 0)
         xs.append("csq_output_mode = 'formatted'")
 
+        if 'attempts' in abargs:
+            try:
+                nattempts = int(self.stripquotes(abargs['attempts']))
+            except Exception as err:
+                print("[latex2cs.abox] cannot parse attempts spec %s in %s, err=%s" % (abargs['attempts'], abargs, err))
+                nattempts = None
+            if nattempts is not None:
+                xs.append("csq_nsubmits = %d" % nattempts)
+
         #if abxml.get('options', ''):
         #    abxml.set('cfn_extra_args', 'options')  # tells sandbox to include 'options' in cfn call arguments
 
