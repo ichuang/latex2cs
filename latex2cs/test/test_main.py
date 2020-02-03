@@ -54,9 +54,10 @@ csq_inline = '1'
 csq_soln = 'zdamp'
 csq_options = {}
 csq_npoints = 0
+csq_size = '60'
 csq_output_mode = 'formatted'
-csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
-csq_solns = ["""see solution""", """."""]
+csq_prompts = [r"""<math>E_0 =</math>""", r"""<math>E_1 =</math>"""]
+csq_solns = [r"""see solution""", r"""."""]
 csq_nsubmits = 10
 </question>'''
         assert expect in xhtml
@@ -92,9 +93,10 @@ csq_inline = '1'
 csq_soln = 'zdamp'
 csq_options = {}
 csq_npoints = 0
+csq_size = '60'
 csq_output_mode = 'formatted'
-csq_prompts = ["""<math>E_0 =</math>""", """<math>E_1 =</math>"""]
-csq_solns = ["""see solution""", """."""]
+csq_prompts = [r"""<math>E_0 =</math>""", r"""<math>E_1 =</math>"""]
+csq_solns = [r"""see solution""", r"""."""]
 csq_explanation=r"""
 <solution>
   <span>This is an explanation </span>
@@ -137,9 +139,10 @@ csq_inline = '1'
 csq_soln = '2*p-1'
 csq_options = {}
 csq_npoints = 0
+csq_size = '30'
 csq_output_mode = 'formatted'
-csq_prompts = [""""""]
-csq_solns = ["""2*p-1"""]
+csq_prompts = [r""""""]
+csq_solns = [r"""2*p-1"""]
 # HINT for: myhints
 # ===HINT-DEFINITION===
 hs = general_hint_system.HintSystem(hints=myhints)
@@ -149,7 +152,7 @@ csq_explanation=r"""
   <span>This is an explanation </span>
 </solution>
 """
-csq_prompts = ["""<math>g =</math>"""]
+csq_prompts = [r"""<math>g =</math>"""]
 csq_nsubmits = 10
 </question>'''
         assert expect in xhtml

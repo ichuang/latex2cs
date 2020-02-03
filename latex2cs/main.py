@@ -48,11 +48,13 @@ class latex2cs:
         self.showhide_installed = False
         self.general_hint_system_installed = False	# if hints are used, the supporting python scripts must be in the library, and be imported
 
-    def convert(self, ofn=None):
+    def convert(self, ofn=""):
         imdir = "__STATIC__"
         imurl = ""
         imurl_fmt = "CURRENT/{fnbase}"
-        ofn = ofn or self.fn.replace(".tex", ".md")
+        ofn = ofn
+        if ofn=="":
+            self.fn.replace(".tex", ".md")
         if not os.path.exists(imdir):
             os.mkdir(imdir)
         self.p2x = plastex2xhtml(self.fn,
@@ -110,7 +112,8 @@ class latex2cs:
             p.stdin.write(xml)
             p.stdin.close()
             p.wait()
-            xml = codecs.open('tmp.xml', encoding="utf8").read()
+            with codecs.open('tmp.xml', encoding="utf8") as xfp:
+                xml = xfp.read()
             xml = xml.encode("utf8")
         except Exception as err:
             print("[xbundle.py] Warning - no xmllint")
@@ -524,11 +527,12 @@ Version: {}
     parser.add_argument('-v', "--verbose", nargs=0, help="increase output verbosity (add more -v to increase versbosity)", action=VAction, dest='verbose')
     parser.add_argument("--lib-dir", help="library directory for python scripts", default=".")
     parser.add_argument("-o", "--output", help="output filename", default=None)
+    parser.add_argument("--add-wrap", help="add begin{document}...end{document} wrapper around tex", action="store_true")
 
     if not args:
         args = parser.parse_args(arglist)
 
-    l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir)
+    l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir, add_wrap=args.add_wrap)
     l2c.convert(ofn=args.output)
 
 

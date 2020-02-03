@@ -73,12 +73,15 @@ class AnswerBox:
             xs += ["</question>"]
             return "\n".join(xs)
 
-    def copy_attrib(self, xs, name, default=None, newname=None):
+    def copy_attrib(self, xs, name, default=None, newname=None, skip_if_empty=False):
         '''
         Make csq_<name> = abargs[name] line in xs
         '''
         newname = newname or name
-        xs.append('csq_%s = %r' % (newname, self.abargs.get(name, default)))
+        val = self.abargs.get(name, default)
+        if skip_if_empty and (val is None):
+            return
+        xs.append('csq_%s = %r' % (newname, val))
 
     def make_pythonic(self):
         '''
@@ -94,6 +97,7 @@ class AnswerBox:
         self.copy_attrib(xs, 'expect', None, "soln")
         self.copy_attrib(xs, 'options', {})
         self.copy_attrib(xs, 'npoints', 0)
+        self.copy_attrib(xs, 'size', None, "size", skip_if_empty=True)
         xs.append("csq_output_mode = 'formatted'")
 
         if 'attempts' in abargs:
