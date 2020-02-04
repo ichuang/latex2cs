@@ -53,9 +53,9 @@ class AnswerBox:
                          'external': None,
                          'code': None,
                          'oldmultichoice': None,
-                         'multichoice': None,
+                         'multichoice': "multiplechoice",
                          'numerical': None,
-                         'option': None,
+                         'option': "dropdown",
                          'formula': None,
                          'shortans': None,
                          'shortanswer': None,
@@ -79,6 +79,18 @@ class AnswerBox:
             #xs += ['<![CDATA[']
             xs += self.make_pythonic()
             #xs += ["]]>"]
+            xs += ["</question>"]
+            return "\n".join(xs)
+
+        elif abtype=="multiplechoice":
+            xs = ['<question multiplechoice="1">']
+            xs += self.make_multiplechoice()
+            xs += ["</question>"]
+            return "\n".join(xs)
+
+        elif abtype=="dropdown":
+            xs = ['<question multiplechoice="1">']
+            xs += self.make_multiplechoice("dropdown")
             xs += ["</question>"]
             return "\n".join(xs)
 
@@ -169,6 +181,38 @@ class AnswerBox:
 
         return xs
 
+    def make_multiplechoice(self, renderer="checkbox"):
+        '''
+        Make a 'multiplechoice' answer box
+        '''
+        xs = []
+        abargs = self.abargs
+        self.require_args(['expect'])
+        self.copy_attrib(xs, 'npoints', 0)
+        self.copy_attrib(xs, 'prompt', '')
+        self.copy_attrib(xs, 'renderer', renderer)
+
+        optionstr, options = self.get_options(abargs)
+        xs.append("csq_options = [%s]" % ", ".join([ self.quoteit(x) for x in options ]))
+
+        expect = self.stripquotes(abargs['expect'])
+        if renderer=="checkbox":
+            soln = [expect==x for x in options]
+            xs.append("csq_soln = [%s]" % ", ".join(map(str, soln)))
+        else:
+            xs.append('csq_soln = r"""%s"""' % expect)
+
+        if 'attempts' in abargs:
+            try:
+                nattempts = int(self.stripquotes(abargs['attempts']))
+            except Exception as err:
+                print("[latex2cs.abox] cannot parse attempts spec %s in %s, err=%s" % (abargs['attempts'], abargs, err))
+                nattempts = None
+            if nattempts is not None:
+                xs.append("csq_nsubmits = %d" % nattempts)
+        return xs
+
+
     def quoteit(self, x):
         return 'r"""%s"""' % x
 
@@ -183,7 +227,7 @@ class AnswerBox:
         options = list(map(self.stripquotes, options))
         options = [x.strip() for x in options]		# strip strings
         if "" in options: options.remove("")
-        optionstr = ','.join(["'%s'" % x for x in options])  # string of single quoted strings
+        optionstr = ','.join([r"'%s'" % x for x in options])  # string of single quoted strings
         optionstr = "(%s)" % optionstr				# enclose in parens
         return optionstr, options
             

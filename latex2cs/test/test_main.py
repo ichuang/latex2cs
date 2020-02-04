@@ -239,3 +239,26 @@ hs = general_hint_system.HintSystem(hints=myhints)
 csq_check_function = hs.catsoop_check_hint(csq_check_function)
 '''
         assert expect in xhtml
+
+
+    def test_multiplechoice1(self):
+        tex = r'''
+
+\edXinline{{\large \tt [ 0 0 0 0 0 0 1 ]} is valid?~} \edXabox{type=option options="true","false" expect="false" inline="1"}
+
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
+        print(xhtml)
+
+        expect = r'''<question multiplechoice>
+csq_npoints = 0
+csq_prompt = ''
+csq_renderer = 'dropdown'
+csq_options = [r"""true""", r"""false"""]
+csq_soln = r"""false"""
+csq_prompt = r"""<big class="large"><tt class="tt">[ 0 0 0 0 0 0 1 ]</tt></big> is valid?&#xA0;"""
+</question>
+'''
+        assert expect in xhtml
+        

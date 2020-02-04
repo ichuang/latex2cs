@@ -204,7 +204,7 @@ class latex2cs:
         change <question pythonic="1".*> to <question pythonic>
         xhtml should be a string
         '''
-        xhtml = re.sub('<question pythonic="1".*?>', "<question pythonic>", xhtml)
+        xhtml = re.sub('<question (pythonic|multiplechoice)="1".*?>', r"<question \1>", xhtml)
         return xhtml
 
     def add_to_question(self, question, new_line, replacement_key=None):
@@ -251,7 +251,10 @@ class latex2cs:
                 prompt = etree.tostring(prev).decode("utf8")
                 prompt = prompt.split(">", 1)[1].rsplit("</", 1)[0]	# remove <p> and </p>
                 prev.getparent().remove(prev)
-                new_line = 'csq_prompts = [r"""%s"""]' % prompt
+                if question.get("multiplechoice"):
+                    new_line = 'csq_prompt = r"""%s"""' % (prompt)
+                else:
+                    new_line = 'csq_prompts = [r"""%s"""]' % (prompt)
                 self.add_to_question(question, new_line)
                 nprompts += 1
         
@@ -307,10 +310,13 @@ class latex2cs:
                 continue
             parent = question.getparent()
             cnt = 0
-            while not parent.tag=="problem" and cnt < 10:
+            while parent and (not parent.tag=="problem") and cnt < 10:
                 parent = parent.getparent()
                 cnt += 1
             problem = parent
+            if not parent:
+                print("[latex2cs] warning - question %s not within a <problem>" % question)
+                continue
             attempts = problem.get("attempts")
             if not attempts:
                 print("[latex2cs] warning - problem has no max attempts specified: %s" % problem)
