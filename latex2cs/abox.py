@@ -6,12 +6,15 @@ import re
 import os
 import sys
 import hashlib
+import traceback
 from latex2edx.abox import split_args_with_quoted_strings
 
 class AnswerBox:
     '''
     Convert latex specification of student-input answer box, into catsoop question code.
     '''
+    CFN_MAP = {}
+
     def __init__(self, aboxstr, config=None, context=None, verbose=False):
         '''
         aboxstr = latex code
@@ -20,7 +23,8 @@ class AnswerBox:
                   filename where the abox is located.
         '''
         self.aboxstr = aboxstr
-        self.config = config
+        self.verbose = verbose
+        self.config = config or {}
         self.context = context
         self.xmlstr_just_code = aboxstr
         self.xmlstr = self.abox2xmlstr(aboxstr)
@@ -44,6 +48,8 @@ class AnswerBox:
         self.abargs = abargs
 
         type2response = {'custom': 'pythonic',
+                         'simple': 'pythonic',
+                         'mapcfn': 'mapcfn',	# special for saving global mapping cfn from old_cfn
                          'external': None,
                          'code': None,
                          'oldmultichoice': None,
@@ -64,6 +70,9 @@ class AnswerBox:
 
         if 'type' in abargs and abargs['type'] in type2response:
             abtype = type2response[abargs['type']]
+        else:
+            msg = "[latex2cs.abox] Error!  missing type declaration in abox: %s" % aboxstr
+            raise Exception(msg)
         
         if abtype=="pythonic":
             xs = ['<question pythonic="1">']	# the ="1" is needed for XML format compliance; this is removed later in filter_fix_question
@@ -72,6 +81,20 @@ class AnswerBox:
             #xs += ["]]>"]
             xs += ["</question>"]
             return "\n".join(xs)
+
+        elif abtype is None:
+            print("[latex2cs.abox] Warning!  Un-implemented abox type %s in %s" % (abargs['type'], aboxstr))
+            return
+
+        elif abtype=="mapcfn":
+            try:
+                ocfn = self.abargs.get("old_cfn")
+                ncfn = self.abargs.get("cfn")
+                AnswerBox.CFN_MAP[ocfn] = ncfn
+            except Exception as err:
+                raise Exception("[latex2cs.abox] error setting cfn map, abox:%s, err=%s, traceback=%s" % (aboxstr, err, traceback.format_exc()))
+            print("[latex2cs.abox] mapping old cfn=%s to new cfn=%s" % (ocfn, ncfn))
+            return
 
     def copy_attrib(self, xs, name, default=None, newname=None, skip_if_empty=False):
         '''
@@ -91,8 +114,15 @@ class AnswerBox:
         '''
         xs = []
         abargs = self.abargs
-        self.require_args(['expect', 'cfn'])
-        xs.append("csq_check_function = %s" % self.stripquotes(abargs['cfn']))
+        self.require_args(['expect'])
+        if 'cfn' in abargs:
+            cfn = self.stripquotes(abargs['cfn'])
+            if cfn in AnswerBox.CFN_MAP:
+                ncfn = AnswerBox.CFN_MAP[cfn]
+                if self.verbose:
+                    print("[latex2cs.abox] mapping old cfn=%s -> %s in abox=%s" % (cfn, ncfn, self.aboxstr))
+                cfn = ncfn
+            xs.append("csq_check_function = %s" % cfn)
         self.copy_attrib(xs, 'inline')
         self.copy_attrib(xs, 'expect', None, "soln")
         self.copy_attrib(xs, 'options', {})
