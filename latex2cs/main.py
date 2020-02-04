@@ -248,7 +248,8 @@ class latex2cs:
         for question in xml.findall(".//question"):
             prev = question.getprevious()
             if prev is not None and len(prev) and prev.tag=="p" and prev.get("style")=="display:inline":
-                prompt = etree.tostring(prev[0]).decode("utf8")
+                prompt = etree.tostring(prev).decode("utf8")
+                prompt = prompt.split(">", 1)[1].rsplit("</", 1)[0]	# remove <p> and </p>
                 prev.getparent().remove(prev)
                 new_line = 'csq_prompts = [r"""%s"""]' % prompt
                 self.add_to_question(question, new_line)
