@@ -37,6 +37,7 @@ class latex2cs:
                          self.filter_fix_hint_definitions,
                          self.filter_fix_inline_prompts, 
                          self.filter_fix_nsubmits, 
+                         self.filter_fix_ref, 
                          self.process_includepy,
                          self.process_showhide,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
@@ -239,6 +240,15 @@ class latex2cs:
             print("[latex2cs] removed %d <edxinclude> lines" % n)
         return etree.tostring(xml).decode("utf8")
 
+    def filter_fix_ref(self, xhtml):
+        '''
+        change <ref> to <b> (this is used by equation references, for example; catsoop looks for anchors with labels, so it crashes on these, otherwise)
+        '''
+        xml = self.str2xml(xhtml)
+        for ref in xml.findall(".//ref"):
+            ref.tag = "b"
+        return etree.tostring(xml).decode("utf8")
+
     def filter_fix_inline_prompts(self, xhtml):
         '''
         Move inline prompts into question as csq_prompt or csq_prompts
@@ -247,7 +257,12 @@ class latex2cs:
         nprompts = 0
         for question in xml.findall(".//question"):
             prev = question.getprevious()
-            if prev is not None and len(prev) and prev.tag=="p" and prev.get("style")=="display:inline":
+            if prev is None and question.getparent().tag=="p":
+                prev = question.getparent().getprevious()
+            if prev.tag=="p" and not prev.get("style")=="display:inline":
+                if len(prev) and prev[0].tag=="p" and prev[0].get("style")=="display:inline":
+                    prev = prev[0]
+            if prev is not None and prev.tag=="p" and prev.get("style")=="display:inline":
                 prompt = etree.tostring(prev).decode("utf8")
                 prompt = prompt.split(">", 1)[1].rsplit("</", 1)[0]	# remove <p> and </p>
                 prev.getparent().remove(prev)
@@ -257,7 +272,9 @@ class latex2cs:
                     new_line = 'csq_prompts = [r"""%s"""]' % (prompt)
                 self.add_to_question(question, new_line)
                 nprompts += 1
-        
+            elif prev is not None and prev.get("style")=="display:inline":
+                print("question %s, prev=%s" % (question, etree.tostring(prev)))
+
         if self.verbose:
             print("[latex2cs] moved %s prompts to their following question" % nprompts)
         return etree.tostring(xml).decode("utf8")
