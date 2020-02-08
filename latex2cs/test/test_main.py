@@ -52,7 +52,6 @@ You are given a black box which takes single qubit
 csq_check_function = check_osr2.catsoop_check_osr
 csq_inline = '1'
 csq_soln = 'zdamp'
-csq_options = {}
 csq_npoints = 0
 csq_size = '60'
 csq_output_mode = 'formatted'
@@ -91,7 +90,6 @@ This is an explanation
 csq_check_function = check_osr2.catsoop_check_osr
 csq_inline = '1'
 csq_soln = 'zdamp'
-csq_options = {}
 csq_npoints = 0
 csq_size = '60'
 csq_output_mode = 'formatted'
@@ -137,7 +135,6 @@ This is an explanation
 csq_check_function = check_osr2.catsoop_sympy_formula_check
 csq_inline = '1'
 csq_soln = '2*p-1'
-csq_options = {}
 csq_npoints = 0
 csq_size = '30'
 csq_output_mode = 'formatted'
@@ -258,6 +255,30 @@ csq_renderer = 'dropdown'
 csq_options = [r"""true""", r"""false"""]
 csq_soln = r"""false"""
 csq_prompt = r"""<big class="large"><tt class="tt">[ 0 0 0 0 0 0 1 ]</tt></big> is valid?&#xA0;"""
+</question>
+'''
+        assert expect in xhtml
+        
+
+    def test_options1(self):
+        tex = r'''
+
+\edXabox{type="custom" size=40 expect="See solutions" options="nq=0;state=|1>" noanswer=1 cfn=edx2catsoop.check(qpython4.check_stabilizer_generators) inline="1"}
+
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
+        print(xhtml)
+
+        expect = r'''<question pythonic>
+csq_check_function = edx2catsoop.check(qpython4.check_stabilizer_generators,options="nq=0;state=|1&gt;")
+csq_inline = '1'
+csq_soln = 'See solutions'
+csq_npoints = 0
+csq_size = '40'
+csq_output_mode = 'formatted'
+csq_prompts = [r""""""]
+csq_solns = [r"""See solutions"""]
 </question>
 '''
         assert expect in xhtml

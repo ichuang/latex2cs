@@ -259,7 +259,7 @@ class latex2cs:
             prev = question.getprevious()
             if prev is None and question.getparent().tag=="p":
                 prev = question.getparent().getprevious()
-            if prev.tag=="p" and not prev.get("style")=="display:inline":
+            if prev is not None and prev.tag=="p" and not prev.get("style")=="display:inline":
                 if len(prev) and prev[0].tag=="p" and prev[0].get("style")=="display:inline":
                     prev = prev[0]
             if prev is not None and prev.tag=="p" and prev.get("style")=="display:inline":

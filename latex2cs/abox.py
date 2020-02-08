@@ -127,6 +127,8 @@ class AnswerBox:
         xs = []
         abargs = self.abargs
         self.require_args(['expect'])
+
+        # construct check function
         if 'cfn' in abargs:
             cfn = self.stripquotes(abargs['cfn'])
             if cfn in AnswerBox.CFN_MAP:
@@ -134,13 +136,25 @@ class AnswerBox:
                 if self.verbose:
                     print("[latex2cs.abox] mapping old cfn=%s -> %s in abox=%s" % (cfn, ncfn, self.aboxstr))
                 cfn = ncfn
+
+            # special handling for options - add as named argument to cfn, if cfn starts with edx2catsoop.check
+            if 'options' in abargs:
+                options = abargs['options']
+                if cfn.startswith("edx2catsoop.check"):
+                    cfn1, cfn2 = cfn.rsplit(')', 1)
+                cfn = '%s,options="%s")%s' % (cfn1, options, cfn2)
+                print("[latex2cs.abox] merged options into cfn for %s" % cfn)
+
             xs.append("csq_check_function = %s" % cfn)
+
         self.copy_attrib(xs, 'inline')
         self.copy_attrib(xs, 'expect', None, "soln")
-        self.copy_attrib(xs, 'options', {})
+        # self.copy_attrib(xs, 'options', {})
         self.copy_attrib(xs, 'npoints', 0)
         self.copy_attrib(xs, 'size', None, "size", skip_if_empty=True)
         xs.append("csq_output_mode = 'formatted'")
+
+                
 
         if 'attempts' in abargs:
             try:
