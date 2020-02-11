@@ -158,8 +158,8 @@ class AnswerBox:
         self.copy_attrib(xs, 'expect', None, "soln")
         # self.copy_attrib(xs, 'options', {})
         self.copy_attrib(xs, 'npoints', 0)
-        self.copy_attrib(xs, 'rows', None, "nrows", skip_if_empty=True, filter_fun=int)
-        self.copy_attrib(xs, 'cols', None, "ncols", skip_if_empty=True, filter_fun=int)
+        self.copy_attrib(xs, 'rows', None, "rows", skip_if_empty=True, filter_fun=int)
+        self.copy_attrib(xs, 'cols', None, "cols", skip_if_empty=True, filter_fun=int)
         self.copy_attrib(xs, 'size', None, "size", skip_if_empty=True)
         xs.append("csq_output_mode = 'formatted'")
 
