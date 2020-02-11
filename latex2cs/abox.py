@@ -108,7 +108,7 @@ class AnswerBox:
             print("[latex2cs.abox] mapping old cfn=%s to new cfn=%s" % (ocfn, ncfn))
             return
 
-    def copy_attrib(self, xs, name, default=None, newname=None, skip_if_empty=False):
+    def copy_attrib(self, xs, name, default=None, newname=None, skip_if_empty=False, filter_fun=None):
         '''
         Make csq_<name> = abargs[name] line in xs
         '''
@@ -116,6 +116,11 @@ class AnswerBox:
         val = self.abargs.get(name, default)
         if skip_if_empty and (val is None):
             return
+        if filter_fun is not None:
+            try:
+                val = filter_fun(val)
+            except Exception as err:
+                raise Exception("[latex2cs.abox] cannot filter attribute %s by %s, err=%s, abox=%s" % (name, filter_fun, err, self.aboxstr))
         xs.append('csq_%s = %r' % (newname, val))
 
     def make_pythonic(self):
@@ -142,8 +147,10 @@ class AnswerBox:
                 options = abargs['options']
                 if cfn.startswith("edx2catsoop.check"):
                     cfn1, cfn2 = cfn.rsplit(')', 1)
-                cfn = '%s,options="%s")%s' % (cfn1, options, cfn2)
-                print("[latex2cs.abox] merged options into cfn for %s" % cfn)
+                    cfn = '%s,options="%s")%s' % (cfn1, options, cfn2)
+                    print("[latex2cs.abox] merged options into cfn for %s" % cfn)
+                else:
+                    print("[latex2cs.abox] Warning!  options specified in abox=%s" % self.aboxstr)
 
             xs.append("csq_check_function = %s" % cfn)
 
@@ -151,10 +158,10 @@ class AnswerBox:
         self.copy_attrib(xs, 'expect', None, "soln")
         # self.copy_attrib(xs, 'options', {})
         self.copy_attrib(xs, 'npoints', 0)
+        self.copy_attrib(xs, 'rows', None, "nrows", skip_if_empty=True, filter_fun=int)
+        self.copy_attrib(xs, 'cols', None, "ncols", skip_if_empty=True, filter_fun=int)
         self.copy_attrib(xs, 'size', None, "size", skip_if_empty=True)
         xs.append("csq_output_mode = 'formatted'")
-
-                
 
         if 'attempts' in abargs:
             try:
