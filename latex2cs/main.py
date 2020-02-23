@@ -211,7 +211,7 @@ class latex2cs:
         xhtml = re.sub('<question (pythonic|multiplechoice|drag_and_drop)="1".*?>', r"<question \1>", xhtml)
         return xhtml
 
-    def add_to_question(self, question, new_line, replacement_key=None):
+    def add_to_question(self, question, new_line, replacement_key=None, at_front=False):
         '''
         Add a new line to a <question> elment. 
         Handle this by transforming into string, adding, and transfomring back, so
@@ -220,12 +220,16 @@ class latex2cs:
         question = etree element
         new_line = str
         replacement_key = (str) if provided, use this for the search and replace, instead of adding to end
+        at_front = (bool) if true, adds new content immediately after <question ...>; default False
         '''
         qstr = etree.tostring(question).decode("utf8")
         if replacement_key:
             new_qstr = qstr.replace(replacement_key, new_line)
         else:
-            new_qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
+            if at_front:
+                new_qstr = re.sub("(<question [^>]+?>)", "\\1\n%s\n" % new_line, qstr)
+            else:
+                new_qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
         if new_qstr == qstr:
             return False
         new_q = etree.fromstring(new_qstr)
@@ -431,7 +435,9 @@ class latex2cs:
                     key = '# ===HINT-DEFINITION==='
                     replaced = self.add_to_question(question, script_code, key)	# first try placing at HINT position (see abox.py)
                     if not replaced:
-                        self.add_to_question(question, script_code)		# else just place at end before </question>
+                        replaced = self.add_to_question(question, script_code, at_front=True)  # else just place at end before </question>
+                        if not replaced:
+                            print("['atex2cs] Error! Could not move script to proper position within question, script=%s" % script_code)
 
                     moved = True
                     nmoved += 1

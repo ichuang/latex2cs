@@ -320,13 +320,6 @@ End test
         print(xhtml)
 
         expect = r'''<question pythonic>
-csq_check_function = chkfact
-csq_inline = '1'
-csq_soln = '1207'
-csq_npoints = 0
-csq_output_mode = 'formatted'
-csq_prompts = [r"""<math>p=~</math>""", r"""<math>q=~</math>"""]
-csq_solns = [r"""17""", r"""71"""]
 
 
 def chkfact(expect, ans):
@@ -338,6 +331,14 @@ def chkfact(expect, ans):
     return int(expect)==factors[0] * factors[1]
 
 
+
+csq_check_function = chkfact
+csq_inline = '1'
+csq_soln = '1207'
+csq_npoints = 0
+csq_output_mode = 'formatted'
+csq_prompts = [r"""<math>p=~</math>""", r"""<math>q=~</math>"""]
+csq_solns = [r"""17""", r"""71"""]
 </question>
 '''
         assert expect in xhtml
