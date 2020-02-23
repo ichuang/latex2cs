@@ -283,3 +283,62 @@ csq_solns = [r"""See solutions"""]
 '''
         assert expect in xhtml
         
+
+    def test_code1(self):
+        tex = r'''
+\begin{edXproblem}
+
+This is a test
+
+\begin{edXscript}
+
+def chkfact(expect, ans):
+    factors = map(int, ans)
+    if 1 in factors:
+        return {'ok': False, 'msg': 'Sorry, please enter nontrivial factors, not 1'}
+    if not 17 in factors:
+        return {'ok': False, 'msg':''}
+    return int(expect)==factors[0] * factors[1]
+
+\end{edXscript}
+
+\edXabox{type='custom' 
+  prompts="$p=~$","$q=~$"
+  answers="17","71"
+  cfn='chkfact' 
+  inline=1
+  expect='1207'
+  wrapclass=subtext2.Subtext(debug=True,sanitize_allow_lists=True) import=subtext2
+}
+
+End test
+
+\end{edXproblem}
+        '''
+        l2c = latex2cs("test.tex", verbose=True, latex_string=tex, add_wrap=True, do_not_copy_files=True)
+        xhtml = l2c.convert(ofn=None, skip_output=True)
+        print(xhtml)
+
+        expect = r'''<question pythonic>
+csq_check_function = chkfact
+csq_inline = '1'
+csq_soln = '1207'
+csq_npoints = 0
+csq_output_mode = 'formatted'
+csq_prompts = [r"""<math>p=~</math>""", r"""<math>q=~</math>"""]
+csq_solns = [r"""17""", r"""71"""]
+
+
+def chkfact(expect, ans):
+    factors = map(int, ans)
+    if 1 in factors:
+        return {'ok': False, 'msg': 'Sorry, please enter nontrivial factors, not 1'}
+    if not 17 in factors:
+        return {'ok': False, 'msg':''}
+    return int(expect)==factors[0] * factors[1]
+
+
+</question>
+'''
+        assert expect in xhtml
+        

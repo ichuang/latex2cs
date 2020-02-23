@@ -34,6 +34,7 @@ class latex2cs:
         self.filters = [ self.filter_fix_math,
                          self.fix_attrib_string,
                          self.filter_fix_section_headers,
+                         self.process_dndtex,
                          self.filter_fix_solutions, 
                          self.filter_remmove_edxinclude, 
                          self.filter_fix_hint_definitions,
@@ -42,7 +43,6 @@ class latex2cs:
                          self.filter_fix_ref, 
                          self.process_includepy,
                          self.process_showhide,
-                         self.process_dndtex,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
                          self.filter_fix_question,	# must be next-to-last, because the result is not XML strict
                          self.add_explanations,
@@ -223,12 +223,15 @@ class latex2cs:
         '''
         qstr = etree.tostring(question).decode("utf8")
         if replacement_key:
-            qstr = qstr.replace(replacement_key, new_line)
+            new_qstr = qstr.replace(replacement_key, new_line)
         else:
-            qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
-        new_q = etree.fromstring(qstr)
+            new_qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
+        if new_qstr == qstr:
+            return False
+        new_q = etree.fromstring(new_qstr)
         question.addprevious(new_q)
         question.getparent().remove(question)
+        return True
         
     def filter_remmove_edxinclude(self, xhtml):
         '''
@@ -426,7 +429,9 @@ class latex2cs:
                     question.set("has_script", "1")
 
                     key = '# ===HINT-DEFINITION==='
-                    self.add_to_question(question, script_code, key)
+                    replaced = self.add_to_question(question, script_code, key)	# first try placing at HINT position (see abox.py)
+                    if not replaced:
+                        self.add_to_question(question, script_code)		# else just place at end before </question>
 
                     moved = True
                     nmoved += 1
@@ -435,8 +440,8 @@ class latex2cs:
 
         if "===HINT-DEFINITION===" in xhtml:
             self.ensure_general_hint_system_installed()
-            if self.verbose:
-                print("[latex2cs] moved %s scripts to their nearest question" % nmoved)
+        if self.verbose:
+            print("[latex2cs] moved %s scripts to their nearest question" % nmoved)
         return etree.tostring(xml).decode("utf8")
 
     def add_explanations(self, xmlstr):
@@ -646,6 +651,7 @@ class latex2cs:
         text.append('csq_check_function = r"""%s"""' % cfn)
         text.append('csq_soln = r"""%s"""' % sol)
         text.append('csq_dnd_xml = r"""%s"""' % dnd_xml)
+        text.append("")			# ensure empty line at end
         return '\n'.join(text)
 
 #-----------------------------------------------------------------------------
