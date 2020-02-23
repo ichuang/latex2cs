@@ -7,6 +7,7 @@ import codecs
 import hashlib
 import argparse
 import subprocess
+from path import Path as path
 from lxml import etree
 from latex2edx.plastexit import plastex2xhtml
 
@@ -27,6 +28,7 @@ class latex2cs:
         self.latex_string = latex_string
         self.add_wrap = add_wrap
         self.lib_dir = lib_dir
+        self.output_dir = path(".")				# todo: make this configurable
         self.extra_filters = extra_filters or []
         self.do_not_copy_files = do_not_copy_files	# used in testing
         self.filters = [ self.filter_fix_math,
@@ -40,6 +42,7 @@ class latex2cs:
                          self.filter_fix_ref, 
                          self.process_includepy,
                          self.process_showhide,
+                         self.process_dndtex,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
                          self.filter_fix_question,	# must be next-to-last, because the result is not XML strict
                          self.add_explanations,
@@ -205,7 +208,7 @@ class latex2cs:
         change <question pythonic="1".*> to <question pythonic>
         xhtml should be a string
         '''
-        xhtml = re.sub('<question (pythonic|multiplechoice)="1".*?>', r"<question \1>", xhtml)
+        xhtml = re.sub('<question (pythonic|multiplechoice|drag_and_drop)="1".*?>', r"<question \1>", xhtml)
         return xhtml
 
     def add_to_question(self, question, new_line, replacement_key=None):
@@ -519,6 +522,131 @@ class latex2cs:
 
         return etree.tostring(xml).decode("utf8")
 
+
+    def process_dndtex(self, xmlstr):
+        '''
+        Handle \edXdndtex{dnd_file.tex} inclusion of latex2dnd tex inputs.
+        The file may also be a dnd_file.dndspec
+        '''
+        xml = self.str2xml(xmlstr)
+        tag = './/edxdndtex'
+        for dndxml in xml.findall(tag):
+            dndfn = dndxml.text
+            linenum = dndxml.get('linenum', '<unavailable>')
+            texfn = dndxml.get('filename', '<unavailable>')
+            if dndfn is None:
+                print("Error: %s must specify dnd tex filename!" % tag)  # EVH changed 'cmd' to 'tag'
+                print("See tex file %s line %s" % (texfn, linenum))
+                raise
+            dndfn = dndfn.strip()
+            if not (dndfn.endswith('.tex') or dndfn.endswith('.dndspec')):
+                print("Error: dnd file %s should be a .tex or a .dndspec file!" % dndfn)
+                print("See tex file %s line %s" % (texfn, linenum))
+                raise
+            if not os.path.exists(dndfn):
+                print("Error: dnd tex file %s does not exist!" % dndfn)
+                print("See tex file %s line %s" % (texfn, linenum))
+                raise
+            try:
+                with open(dndfn) as dfp:
+                    dndsrc = dfp.read()
+            except Exception as err:
+                print("Error %s: cannot open dnd tex / dndpec file %s to read" % (err, dndfn))
+                print("See tex file %s line %s" % (texfn, linenum))
+                raise
+
+            # Use latex2dnd to compile dnd tex into edX XML.
+            #
+            # For dndfile.tex, at least two files must be produced: dndfile_dnd.xml and
+            # dndfile_dnd.png
+            #
+            # we copy all the *.png files to static/images/<dndfile>/
+            #
+            # run latex2dnd only when the dndfile_dnd.xml file is older than dndfile.tex
+
+            fnb = os.path.basename(dndfn)
+            fnpre = fnb.rsplit('.', 1)[0]
+            fndir = path(os.path.dirname(dndfn))
+            xmlfn = fndir / (fnpre + '_dnd.xml')
+
+            run_latex2dnd = False
+            if not os.path.exists(xmlfn):
+                run_latex2dnd = True
+            if not run_latex2dnd:
+                dndmt = os.path.getmtime(dndfn)
+                xmlmt = os.path.getmtime(xmlfn)
+                if dndmt > xmlmt:
+                    run_latex2dnd = True
+            if run_latex2dnd:
+                options = ''
+                if dndxml.get('can_reuse', 'False').lower().strip() != 'false':
+                    options += '-C'
+                cmd = 'cd "%s"; latex2dnd --cleanup -r %s -v %s %s' % (fndir, dndxml.get('resolution', 210), options, fnb)
+                print("--> Running %s" % cmd)
+                sys.stdout.flush()
+                status = os.system(cmd)
+                if status:
+                    print("Oops - latex2dnd apparently failed - aborting!")
+                    raise Exception("Oops - latex2dnd apparently failed - aborting!")
+                imdir = self.output_dir / ('__STATIC__/images/%s' % fnpre)
+                if not os.path.exists(imdir):
+                    os.system('mkdir -p %s' % imdir)
+                cmd = "cp %s/%s*.png %s/" % (fndir, fnpre, imdir)
+                print("----> Copying dnd images: %s" % cmd)
+                sys.stdout.flush()
+                status = os.system(cmd)
+                if status:
+                    print("Oops - copying images from latex2dnd apparently failed - aborting!")
+                    raise Exception("Oops - latex2dnd apparently failed - aborting!")
+            else:
+                print("--> latex2dnd XML file %s is up to date: %s" % (xmlfn, fnpre))
+
+            # change dndtex tag to become <question drag_and_drop=1>
+            # Process <dndfile>_dnd.xml and create assignments
+
+            dndxml.tag = 'question'
+            for k in dndxml.attrib.keys():	# remove old attributes
+                dndxml.attrib.pop(k)
+            dndxml.set("drag_and_drop", "1")
+            dndxml.text = self.make_drag_and_drop(xmlfn)
+
+        return etree.tostring(xml).decode("utf8")
+
+    def make_drag_and_drop(self, xmlfn):
+        text = []
+        print("Procesing drag-and-drop problem from %s" % xmlfn)
+        xml = etree.parse(xmlfn).getroot()
+        dnd_xml = etree.tostring(xml.find(".//drag_and_drop_input")).decode("utf8")
+        answer = xml.find(".//answer")
+        if answer is None:
+            script = xml.find(".//script")
+            cfn = script.text
+            cfn += "\n"
+            cfn += "ret = dnd_check_function(None, submission[0])\n"
+            cfn += "correct = ['incorrect']\n"
+            cfn += "if ret.get('ok'): correct = ['correct']\n"
+            cfn += "if 'msg' in ret:\n"
+            cfn += "    messages = ret.get('msg')\n"
+
+            # overload old formula equality testing with new sympy formula check
+            if 'def is_formula_equal' in cfn:
+                txt = "def is_formula_equal(expected, given, samples):\n"
+                txt += "    ret = sympy_check.sympy_formula_check(expected, given)\n"
+                txt += "    return ret['ok']\n\n"
+                txt += "def old_is_formula_equal"
+                cfn = cfn.replace("def is_formula_equal", txt)
+
+        else:
+            cfn = answer.text
+        sol = xml.find(".//solution")
+        sol.tag = "span"
+        sol = etree.tostring(sol).decode("utf8")
+        sol = sol.replace('"/static/', '"CURRENT/')
+        
+        text.append('csq_check_function = r"""%s"""' % cfn)
+        text.append('csq_soln = r"""%s"""' % sol)
+        text.append('csq_dnd_xml = r"""%s"""' % dnd_xml)
+        return '\n'.join(text)
 
 #-----------------------------------------------------------------------------
 
