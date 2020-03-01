@@ -678,7 +678,10 @@ class latex2cs:
         return etree.tostring(xml).decode("utf8")
 
     def make_drag_and_drop(self, xmlfn):
-        text = []
+        '''
+        Make catsoop question content for drag-and-drop problem, based on XML output of latex2dnd
+        '''
+        text = [""]
         print("Procesing drag-and-drop problem from %s" % xmlfn)
         xml = etree.parse(xmlfn).getroot()
         dnd_xml = etree.tostring(xml.find(".//drag_and_drop_input")).decode("utf8")
