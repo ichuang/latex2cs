@@ -57,6 +57,7 @@ csq_size = '60'
 csq_output_mode = 'formatted'
 csq_prompts = [r"""<math>E_0 =</math>""", r"""<math>E_1 =</math>"""]
 csq_solns = [r"""see solution""", r"""."""]
+csq_name = 's12_wk1_osr_ex1_01'
 csq_nsubmits = 10
 </question>'''
         assert expect in xhtml
@@ -100,6 +101,7 @@ csq_explanation=r"""
   <span>This is an explanation </span>
 </solution>
 """
+csq_name = 's12_wk1_osr_ex1_01'
 csq_nsubmits = 10
 </question>'''
         assert expect in xhtml
@@ -150,6 +152,7 @@ csq_explanation=r"""
 </solution>
 """
 csq_prompts = [r"""<math>g =</math>"""]
+csq_name = 's12_wk1_osr_ex1_01'
 csq_nsubmits = 10
 </question>'''
         assert expect in xhtml

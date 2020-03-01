@@ -39,6 +39,7 @@ class latex2cs:
                          self.filter_remmove_edxinclude, 
                          self.filter_fix_hint_definitions,
                          self.filter_fix_inline_prompts, 
+                         self.filter_fix_question_names, 
                          self.filter_fix_nsubmits, 
                          self.filter_fix_ref, 
                          self.process_includepy,
@@ -51,6 +52,7 @@ class latex2cs:
         self.explanations = {}				# csq_explanations are added at the end, after pretty printing, to preserve pp
         self.showhide_installed = False
         self.general_hint_system_installed = False	# if hints are used, the supporting python scripts must be in the library, and be imported
+        self.question_names = []			# used to make sure all question names are globally unique
 
     def convert(self, ofn=None, skip_output=False):
         imdir = "__STATIC__"
@@ -360,6 +362,58 @@ class latex2cs:
         if n and self.verbose:
             print("[latex2cs] fixed %d questions to have csq_nsubmits defined" % n)
         return etree.tostring(xml).decode("utf8")
+
+
+    def make_valid_question_name(self, name):
+        '''
+        catsoop only allows question names matching this:
+
+        _valid_qname = re.compile(r"^[A-Za-z][_A-Za-z0-9]*$")
+
+        which is different from edX's url_name criterion, which allows dashes, for example.
+        Transform the question name untill acceptable, and return.
+        '''
+        valid_qname = re.compile(r"^[A-Za-z][_A-Za-z0-9]*$")
+        if valid_qname.match(name):
+            return name
+        name = name.replace("-", "_")
+        if valid_qname.match(name):
+            return name
+        raise Exception("[latex2cs] failed to generate valid csq_name from edX url_name=%s" % name)
+
+
+    def filter_fix_question_names(self, xhtml):
+        '''
+        If url_name is specified for a given problem, then use that to generate csq_name for any questions inside the problem
+        '''
+        xml = self.str2xml(xhtml)
+        n = 0
+        nq = 0
+        for problem in xml.findall(".//problem"):
+            url_name = problem.get("url_name")
+            if not url_name:
+                continue
+            url_name = self.make_valid_question_name(url_name)
+            qcnt = 0
+            for question in problem.findall(".//question"):
+                if "csq_name" in etree.tostring(question).decode("utf8"):
+                    continue
+                qcnt += 1
+                csq_name = "%s_%02d" % (url_name, qcnt)
+                if csq_name in self.question_names:
+                    print("[latex2cs] Warning: question name %s already exists, but trying to add again at %s?" % (csq_name, problem))
+                    while csq_name in self.question_names:
+                        csq_name += "x"
+                self.question_names.append(csq_name)
+                new_line = "csq_name = '%s'" % csq_name
+                self.add_to_question(question, new_line)
+            n += 1
+            nq += qcnt
+        
+        if n:
+            print("[latex2cs] fixed %d problems (%s questions total) to have csq_name defined" % (n, nq))
+        return etree.tostring(xml).decode("utf8")
+
 
     def filter_fix_solutions(self, xhtml):
         '''
