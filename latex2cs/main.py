@@ -17,11 +17,13 @@ from .abox import split_args_with_quoted_strings
 # -----------------------------------------------------------------------------
 
 class latex2cs:
-    def __init__(self, fn, latex_string=None, verbose=False, extra_filters=None, add_wrap=False, lib_dir=".", do_not_copy_files=False):
+    def __init__(self, fn, latex_string=None, verbose=False, extra_filters=None, add_wrap=False, lib_dir=".",
+                 do_not_copy_files=False, default_npoints=1):
         '''
         fn = tex filename
         latex_string = (str) latex string to process (instead of reading from file)
         lib_dir = (str) path where python files (if any, e.g. for the general hint system) should be copied to and imported from
+        default_npoints = (int) number of points to set csq_npoints to, if otherwise unspecified
         '''
         self.fn = fn or ""
         self.verbose = verbose
@@ -29,12 +31,14 @@ class latex2cs:
         self.add_wrap = add_wrap
         self.lib_dir = lib_dir
         self.output_dir = path(".")				# todo: make this configurable
+        self.default_npoints = default_npoints
         self.extra_filters = extra_filters or []
         self.do_not_copy_files = do_not_copy_files	# used in testing
         self.filters = [ self.filter_fix_math,
+                         self.filter_fix_math_eqnarray,
                          self.fix_attrib_string,
                          self.filter_fix_section_headers,
-                         self.process_dndtex,
+                         self.process_dndtex,		# needs unit test
                          self.filter_fix_solutions, 
                          self.filter_remmove_edxinclude, 
                          self.filter_fix_hint_definitions,
@@ -42,6 +46,7 @@ class latex2cs:
                          self.filter_fix_question_names, 
                          self.filter_fix_nsubmits, 
                          self.filter_fix_ref, 
+                         self.process_edxxml,		# needs unit test
                          self.process_includepy,
                          self.process_showhide,
                          self.pp_xml,			# next-to-next-to-last: pretty prints XML into string
@@ -61,6 +66,7 @@ class latex2cs:
         ofn = ofn or self.fn.replace(".tex", ".md")
         if not os.path.exists(imdir):
             os.mkdir(imdir)
+        AnswerBox.DEFAULT_NPOINTS = self.default_npoints
         self.p2x = plastex2xhtml(self.fn,
                                  fp=None,
                                  extra_filters=None,
@@ -129,6 +135,56 @@ class latex2cs:
         if xml.startswith('<?xml '):
             xml = xml.split('\n', 1)[1]
         return xml
+
+    @staticmethod
+    def remove_parent_p(xml):
+        '''
+        If xml is inside an otherwise empty <p>, then push it up and remove the <p>
+        '''
+        p = xml.getparent()
+        todrop = xml
+        where2add = xml
+        if p.tag == 'p' and not p.text.strip() and len(p) == 1:	 # if in empty <p> then remove that <p>
+            todrop = p
+            where2add = p
+            p = p.getparent()
+
+        # move from xml to parent: text, children, and tail
+        if xml.text:
+            if xml.getprevious() is not None:
+                if xml.getprevious().tail:
+                    xml.getprevious().tail += xml.text
+                else:
+                    xml.getprevious().tail = xml.text
+            else:
+                if p.text:
+                    p.text += xml.text
+                else:
+                    p.text = xml.text
+        for child in xml:
+            where2add.addprevious(child)
+        if xml.tail:
+            if 'child' in locals():
+                if child.tail:
+                    child.tail += xml.tail
+                else:
+                    child.tail = xml.tail
+            else:
+                if p.text:
+                    p.text += xml.tail
+                else:
+                    p.text = xml.tail
+        p.remove(todrop)
+
+    def process_edxxml(self, xhtml):
+        '''
+        move content of edXxml into body
+        If edXxml is within a <p> then drop the <p>.  This allows edXxml to be used for discussion and video.
+        '''
+        xml = self.str2xml(xhtml)
+        for edxxml in xml.findall('.//edxxml'):
+            self.remove_parent_p(edxxml)
+        return etree.tostring(xml).decode("utf8")
 
     def process_showhide(self, xhtml):
         xml = self.str2xml(xhtml)
@@ -234,7 +290,11 @@ class latex2cs:
                 new_qstr = qstr.replace("</question>", "%s\n</question>" % new_line)
         if new_qstr == qstr:
             return False
-        new_q = etree.fromstring(new_qstr)
+        try:
+            new_q = etree.fromstring(new_qstr)
+        except Exception as err:
+            print("[latex2cs] failed to add to question, new_qstr=%s" % new_qstr)
+            raise
         question.addprevious(new_q)
         question.getparent().remove(question)
         return True
@@ -250,6 +310,23 @@ class latex2cs:
             n += 1
         if self.verbose:
             print("[latex2cs] removed %d <edxinclude> lines" % n)
+        return etree.tostring(xml).decode("utf8")
+        
+    def filter_fix_math_eqnarray(self, xhtml):
+        '''
+        Math eqnarray is turned into a table, but the width of the left-algined column is abnormally small.
+        Fix this by making it wider.
+        '''
+        xml = self.str2xml(xhtml)
+        n = 0
+        for er in xml.findall('.//table[@class="eqnarray"]'):
+            for ma in er.findall('.//td'):
+                mas = ma.get("style")
+                if ("text-align:left" in mas) and ("vertical-align:middle" in mas):
+                    n += 1
+                    ma.set("style", mas + ";width:60%")
+        if self.verbose:
+            print("[latex2cs] extended width of %d <td> lines in eqnarray tables" % n)
         return etree.tostring(xml).decode("utf8")
 
     def filter_fix_ref(self, xhtml):
@@ -599,6 +676,8 @@ class latex2cs:
             dndfn = dndxml.text
             linenum = dndxml.get('linenum', '<unavailable>')
             texfn = dndxml.get('filename', '<unavailable>')
+            check_fn = dndxml.get('cfn')
+            print("[latex2cs.process_dndtex] dndfn=%s, check_fn=%s" % (dndfn, check_fn))
             if dndfn is None:
                 print("Error: %s must specify dnd tex filename!" % tag)  # EVH changed 'cmd' to 'tag'
                 print("See tex file %s line %s" % (texfn, linenum))
@@ -673,20 +752,28 @@ class latex2cs:
             for k in dndxml.attrib.keys():	# remove old attributes
                 dndxml.attrib.pop(k)
             dndxml.set("drag_and_drop", "1")
-            dndxml.text = self.make_drag_and_drop(xmlfn)
+            dndxml.text = self.make_drag_and_drop(xmlfn, check_fn)
 
         return etree.tostring(xml).decode("utf8")
 
-    def make_drag_and_drop(self, xmlfn):
+    def make_drag_and_drop(self, xmlfn, check_fn=None):
         '''
         Make catsoop question content for drag-and-drop problem, based on XML output of latex2dnd
+        xmlfn = dnd XML filename
+        checn_fn = check function name (if provided)
         '''
         text = [""]
         print("Procesing drag-and-drop problem from %s" % xmlfn)
         xml = etree.parse(xmlfn).getroot()
         dnd_xml = etree.tostring(xml.find(".//drag_and_drop_input")).decode("utf8")
         answer = xml.find(".//answer")
-        if answer is None:
+
+        if check_fn is not None:
+            cfn = check_fn
+            print("[latex2cs.make_drag_and_drop] cfn=%s" % cfn)
+            text.append('csq_check_function = %s' % cfn)
+
+        elif answer is None:
             script = xml.find(".//script")
             cfn = script.text
             cfn += "\n"
@@ -704,14 +791,17 @@ class latex2cs:
                 txt += "def old_is_formula_equal"
                 cfn = cfn.replace("def is_formula_equal", txt)
 
+            text.append('csq_check_function = r"""%s"""' % cfn)
+
         else:
             cfn = answer.text
+            text.append('csq_check_function = r"""%s"""' % cfn)
+
         sol = xml.find(".//solution")
         sol.tag = "span"
         sol = etree.tostring(sol).decode("utf8")
         sol = sol.replace('"/static/', '"CURRENT/')
         
-        text.append('csq_check_function = r"""%s"""' % cfn)
         text.append('csq_soln = r"""%s"""' % sol)
         text.append('csq_dnd_xml = r"""%s"""' % dnd_xml)
         text.append("")			# ensure empty line at end
