@@ -46,6 +46,8 @@ class latex2cs:
                          self.filter_fix_question_names, 
                          self.filter_fix_nsubmits, 
                          self.filter_fix_ref, 
+                         self.process_video, 
+                         self.filter_remove_discussion, 
                          self.process_edxxml,		# needs unit test
                          self.process_includepy,
                          self.process_showhide,
@@ -186,6 +188,34 @@ class latex2cs:
             self.remove_parent_p(edxxml)
         return etree.tostring(xml).decode("utf8")
 
+    def process_video(self, xhtml):
+        '''
+        replace video with embedded youtube
+        '''
+        xml = self.str2xml(xhtml)
+        for elem in xml.findall('.//video'):
+            ytid = elem.get("youtube_id_1_0")
+            dn = elem.get("display_name")
+            elem.tag = "iframe"
+            elem.set("src", f"https://www.youtube.com/embed/{ytid}")
+            elem.set("width", "560")
+            elem.set("height", "315")
+            elem.set("allowfullscreen", "allowfullscreen")
+            elem.set("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture")
+            text = etree.fromstring(f"<p>{dn}</p>")
+            pp = elem.getparent()
+            pp.insert(pp.index(elem), text)
+        return etree.tostring(xml).decode("utf8")
+
+    def filter_remove_discussion(self, xhtml):
+        '''
+        remove <discussion> elements
+        '''
+        xml = self.str2xml(xhtml)
+        for elem in xml.findall('.//discussion'):
+            elem.getparent().remove(elem)
+        return etree.tostring(xml).decode("utf8")
+
     def process_showhide(self, xhtml):
         xml = self.str2xml(xhtml)
         n = 0
@@ -320,11 +350,40 @@ class latex2cs:
         xml = self.str2xml(xhtml)
         n = 0
         for er in xml.findall('.//table[@class="eqnarray"]'):
+            found_tal = False
+            tar_element = None
+            tar_content_width = None
             for ma in er.findall('.//td'):
                 mas = ma.get("style")
+                if ("text-align:right" in mas) and ("vertical-align:middle" in mas):
+                    tar_element = ma
+                    tar_content_width = len(etree.tostring(ma))
                 if ("text-align:left" in mas) and ("vertical-align:middle" in mas):
                     n += 1
+                    tal_content_width = len(etree.tostring(ma))
+                    if tar_content_width - tal_content_width > 5:	# if left side of equation is bigger, then make that wide wider
+                        ma = tar_element
+                        mas = ma.get("style")
                     ma.set("style", mas + ";width:60%")
+                    found_tal = True
+                    break
+            if not found_tal:
+                # some eqnarray tables have <td style="vertical-align:middle;text-align:right"> between two <td style="width:40%">&#160;</td> 
+                found_tar = False
+                for ma in er.findall('.//td'):
+                    mas = ma.get("style")
+                    if ("text-align:right" in mas) and ("vertical-align:middle" in mas):
+                        n += 1
+                        ma.set("style", mas + ";width:40%")
+                        found_tar = True
+                        break
+                if found_tar:
+                    for ma in er.findall('.//td'):
+                        mas = ma.get("style")
+                        if mas=="width:40%":
+                            ma.set("style", "width:10%")
+                            break
+                
         if self.verbose:
             print("[latex2cs] extended width of %d <td> lines in eqnarray tables" % n)
         return etree.tostring(xml).decode("utf8")
