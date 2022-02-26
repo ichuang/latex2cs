@@ -350,41 +350,56 @@ class latex2cs:
         xml = self.str2xml(xhtml)
         n = 0
         for er in xml.findall('.//table[@class="eqnarray"]'):
-            found_tal = False
-            tar_element = None
-            tal_element = None
-            tal_content_width = 0
-            tar_content_width = 0
-            found_tar = False
-            for ma in er.findall('.//td'):
-                mas = ma.get("style")
-                if ("text-align:right" in mas) and ("vertical-align:middle" in mas):
-                    tar_element = ma
-                    tar_content_width = len(etree.tostring(ma))
-                    found_tar = True
-                if ("text-align:left" in mas) and ("vertical-align:middle" in mas):
-                    n += 1
-                    tal_element = ma
-                    tal_content_width = len(etree.tostring(ma))
-                    found_tal = True
-                    break
-            if found_tal and found_tar:
-                if tar_content_width - tal_content_width > 15:	# if left side of equation is bigger, then make that side wider
+            for trow in er.findall('.//tr'):
+                found_tal = False
+                tar_element = None
+                tal_element = None
+                tal_content_width = 0
+                tar_content_width = 0
+                found_tar = False
+                for ma in trow.findall('.//td'):
+                    mas = ma.get("style")
+                    if ("text-align:right" in mas) and ("vertical-align:middle" in mas):
+                        tar_element = ma
+                        tar_content_width = len(etree.tostring(ma))
+                        found_tar = True
+                    if ("text-align:left" in mas) and ("vertical-align:middle" in mas):
+                        n += 1
+                        tal_element = ma
+                        tal_content_width = len(etree.tostring(ma))
+                        found_tal = True
+                        break
+                if found_tal and found_tar:
+                    if 0 and (tar_content_width - tal_content_width > 15):	# if left side of equation is bigger, then make that side wider
+                        ma = tar_element
+                        mas = ma.get("style")
+                        ma.set("style", mas + ";width:10%")
+    
+                        ma = tal_element
+                        mas = ma.get("style")
+                        ma.set("style", mas + ";width:10%")
+                    elif 0 and (tar_content_width - tal_content_width > 5):	# if left side of equation is bigger, then make that side wider
+                        ma = tar_element
+                        mas = ma.get("style")
+                        ma.set("style", mas + ";width:30%")
+    
+                        ma = tal_element
+                        mas = ma.get("style")
+                        ma.set("style", mas + ";width:10%")
+                    else:
+                        ma = tar_element
+                        mas = ma.get("style")
+                        ma.set("style", mas + ";white-space:nowrap")
+    
+                        ma = tal_element
+                        mas = ma.get("style")
+                        ma.set("style", mas + ";white-space:nowrap")
+                    
+                elif found_tar:	# only right hand side
                     ma = tar_element
                     mas = ma.get("style")
-                    ma.set("style", mas + ";width:10%")
+                    ma.set("style", mas + ";white-space:nowrap")
 
-                    ma = tal_element
-                    mas = ma.get("style")
-                    ma.set("style", mas + ";width:10%")
-                if tar_content_width - tal_content_width > 5:	# if left side of equation is bigger, then make that side wider
-                    ma = tar_element
-                    mas = ma.get("style")
-                    ma.set("style", mas + ";width:30%")
-
-                    ma = tal_element
-                    mas = ma.get("style")
-                    ma.set("style", mas + ";width:10%")
             if 0:
                 # some eqnarray tables have <td style="vertical-align:middle;text-align:right"> between two <td style="width:40%">&#160;</td> 
                 for ma in er.findall('.//td'):
