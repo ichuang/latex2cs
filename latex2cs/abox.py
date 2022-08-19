@@ -218,9 +218,10 @@ class AnswerBox:
         optionstr, options = self.get_options(abargs)
         xs.append("csq_options = [%s]" % ", ".join([ self.quoteit(x) for x in options ]))
 
-        expect = self.stripquotes(abargs['expect'])
+        # expect = self.stripquotes(abargs['expect'])
+        expectstr, expect = self.get_options(abargs, 'expect')	# allow for expect to be a list of quoted strings
         if renderer=="checkbox":
-            soln = [expect==x for x in options]
+            soln = [(x in expect) for x in options]
             xs.append("csq_soln = [%s]" % ", ".join(map(str, soln)))
         else:
             xs.append('csq_soln = r"""%s"""' % expect)
