@@ -296,7 +296,7 @@ class latex2cs:
         change <question pythonic="1".*> to <question pythonic>
         xhtml should be a string
         '''
-        xhtml = re.sub('<question (pythonic|multiplechoice|drag_and_drop)="1".*?>', r"<question \1>", xhtml)
+        xhtml = re.sub('<question (pythonic|multiplechoice|drag_and_drop|bigbox)="1".*?>', r"<question \1>", xhtml)
         return xhtml
 
     def add_to_question(self, question, new_line, replacement_key=None, at_front=False):

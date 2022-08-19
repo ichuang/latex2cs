@@ -58,7 +58,7 @@ class AnswerBox:
                          'numerical': None,
                          'option': "dropdown",
                          'formula': None,
-                         'shortans': None,
+                         'shortans': "bigbox",
                          'shortanswer': None,
                          'string': None,
                          'symbolic': None,
@@ -86,6 +86,12 @@ class AnswerBox:
         elif abtype=="multiplechoice":
             xs = ['<question multiplechoice="1">']
             xs += self.make_multiplechoice()
+            xs += ["</question>"]
+            return "\n".join(xs)
+
+        elif abtype=="bigbox":
+            xs = ['<question bigbox="1">']
+            xs += self.make_bigbox()
             xs += ["</question>"]
             return "\n".join(xs)
 
@@ -123,6 +129,43 @@ class AnswerBox:
             except Exception as err:
                 raise Exception("[latex2cs.abox] cannot filter attribute %s by %s, err=%s, abox=%s" % (name, filter_fun, err, self.aboxstr))
         xs.append('csq_%s = %r' % (newname, val))
+
+    def make_bigbox(self):
+        '''
+        Make a 'bigbox' answer box -- for open text response (ungraded)
+        Return list of lines
+        '''
+        xs = []
+        abargs = self.abargs
+
+        # construct check function
+        if 'cfn' in abargs:
+            cfn = self.stripquotes(abargs['cfn'])
+            if cfn in AnswerBox.CFN_MAP:
+                ncfn = AnswerBox.CFN_MAP[cfn]
+                if self.verbose:
+                    print("[latex2cs.abox] mapping old cfn=%s -> %s in abox=%s" % (cfn, ncfn, self.aboxstr))
+                cfn = ncfn
+
+            xs.append("csq_check_function = %s" % cfn)
+        else:
+            xs.append("csq_check_function = lambda sub, soln: True")	# default - always correct
+
+        self.copy_attrib(xs, 'npoints', AnswerBox.DEFAULT_NPOINTS)
+        self.copy_attrib(xs, 'rows', None, "rows", skip_if_empty=True, filter_fun=int)
+        self.copy_attrib(xs, 'cols', None, "cols", skip_if_empty=True, filter_fun=int)
+        self.copy_attrib(xs, 'size', None, "size", skip_if_empty=True)
+
+        if 'attempts' in abargs:
+            try:
+                nattempts = int(self.stripquotes(abargs['attempts']))
+            except Exception as err:
+                print("[latex2cs.abox] cannot parse attempts spec %s in %s, err=%s" % (abargs['attempts'], abargs, err))
+                nattempts = None
+            if nattempts is not None:
+                xs.append("csq_nsubmits = %d" % nattempts)
+
+        return xs
 
     def make_pythonic(self):
         '''
