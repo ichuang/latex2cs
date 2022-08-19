@@ -224,7 +224,7 @@ class AnswerBox:
             soln = [(x in expect) for x in options]
             xs.append("csq_soln = [%s]" % ", ".join(map(str, soln)))
         else:
-            xs.append('csq_soln = r"""%s"""' % expect)
+            xs.append('csq_soln = r"""%s"""' % expect[0])
 
         if 'attempts' in abargs:
             try:
