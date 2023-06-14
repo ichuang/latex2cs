@@ -934,7 +934,7 @@ Version: {}
     if not args:
         args = parser.parse_args(arglist)
 
-    l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir, add_wrap=args.add_wrap)
+    l2c = latex2cs(args.texfile, verbose=(args.verbose or False), lib_dir=args.lib_dir, add_wrap=args.add_wrap)
     l2c.convert(ofn=args.output)
 
 
