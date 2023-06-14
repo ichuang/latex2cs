@@ -35,7 +35,9 @@ setup(
             ],
         },
     install_requires=['latex2edx',
+                      'path',
                       ],
+    # note plasTeX needs to be version 2.1
     package_dir={'latex2cs': 'latex2cs'},
     #package_data={'latex2cs': ['render/*', 'testtex/*', 'plastexpy/*.py',
     #                            'python_lib/*.py', 'latex2cs.js',
