@@ -18,17 +18,19 @@ from .abox import split_args_with_quoted_strings
 
 class latex2cs:
     def __init__(self, fn, latex_string=None, verbose=False, extra_filters=None, add_wrap=False, lib_dir=".",
-                 do_not_copy_files=False, default_npoints=1):
+                 do_not_copy_files=False, default_npoints=1, use_sections=False):
         '''
         fn = tex filename
         latex_string = (str) latex string to process (instead of reading from file)
         lib_dir = (str) path where python files (if any, e.g. for the general hint system) should be copied to and imported from
         default_npoints = (int) number of points to set csq_npoints to, if otherwise unspecified
+        use_sections = (book) True if <section> is to be used instead of <h3> for edXproblem display names
         '''
         self.fn = fn or ""
         self.verbose = verbose
         self.latex_string = latex_string
         self.add_wrap = add_wrap
+        self.use_sections = use_sections
         self.lib_dir = lib_dir
         self.output_dir = path(".")				# todo: make this configurable
         self.default_npoints = default_npoints
@@ -692,7 +694,10 @@ class latex2cs:
                 big.tag = "h2"
 
         for prob in xml.findall(".//problem"):
-            h3 = etree.Element("h3")
+            if self.use_sections:
+                h3 = etree.Element("section")
+            else:
+                h3 = etree.Element("h3")
             h3.text = prob.get("display_name")
             prob.insert(0, h3)
         return etree.tostring(xml).decode("utf8")
@@ -930,11 +935,12 @@ Version: {}
     parser.add_argument("--lib-dir", help="library directory for python scripts", default=".")
     parser.add_argument("-o", "--output", help="output filename", default="")
     parser.add_argument("--add-wrap", help="add begin{document}...end{document} wrapper around tex", action="store_true")
+    parser.add_argument("--use-sections", help="use section instead of h3 for edXproblem", action="store_true")
 
     if not args:
         args = parser.parse_args(arglist)
 
-    l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir, add_wrap=args.add_wrap)
+    l2c = latex2cs(args.texfile, verbose=args.verbose, lib_dir=args.lib_dir, add_wrap=args.add_wrap, use_sections=args.use_sections)
     l2c.convert(ofn=args.output)
 
 
