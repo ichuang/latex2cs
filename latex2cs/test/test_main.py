@@ -52,7 +52,7 @@ You are given a black box which takes single qubit
 csq_check_function = check_osr2.catsoop_check_osr
 csq_inline = '1'
 csq_soln = 'zdamp'
-csq_npoints = 0
+csq_npoints = 1
 csq_size = '60'
 csq_output_mode = 'formatted'
 csq_prompts = [r"""<math>E_0 =</math>""", r"""<math>E_1 =</math>"""]
@@ -91,7 +91,7 @@ This is an explanation
 csq_check_function = check_osr2.catsoop_check_osr
 csq_inline = '1'
 csq_soln = 'zdamp'
-csq_npoints = 0
+csq_npoints = 1
 csq_size = '60'
 csq_output_mode = 'formatted'
 csq_prompts = [r"""<math>E_0 =</math>""", r"""<math>E_1 =</math>"""]
@@ -137,7 +137,7 @@ This is an explanation
 csq_check_function = check_osr2.catsoop_sympy_formula_check
 csq_inline = '1'
 csq_soln = '2*p-1'
-csq_npoints = 0
+csq_npoints = 1
 csq_size = '30'
 csq_output_mode = 'formatted'
 csq_prompts = [r""""""]
@@ -252,7 +252,7 @@ csq_check_function = hs.catsoop_check_hint(csq_check_function)
         print(xhtml)
 
         expect = r'''<question multiplechoice>
-csq_npoints = 0
+csq_npoints = 1
 csq_prompt = ''
 csq_renderer = 'dropdown'
 csq_options = [r"""true""", r"""false"""]
@@ -277,7 +277,7 @@ csq_prompt = r"""<big class="large"><tt class="tt">[ 0 0 0 0 0 0 1 ]</tt></big> 
 csq_check_function = edx2catsoop.check(qpython4.check_stabilizer_generators,options="nq=0;state=|1&gt;")
 csq_inline = '1'
 csq_soln = 'See solutions'
-csq_npoints = 0
+csq_npoints = 1
 csq_size = '40'
 csq_output_mode = 'formatted'
 csq_prompts = [r""""""]
@@ -338,7 +338,7 @@ def chkfact(expect, ans):
 csq_check_function = chkfact
 csq_inline = '1'
 csq_soln = '1207'
-csq_npoints = 0
+csq_npoints = 1
 csq_output_mode = 'formatted'
 csq_prompts = [r"""<math>p=~</math>""", r"""<math>q=~</math>"""]
 csq_solns = [r"""17""", r"""71"""]
